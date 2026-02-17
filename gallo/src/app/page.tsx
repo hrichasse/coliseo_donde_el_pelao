@@ -113,6 +113,27 @@ export default function Home() {
     }
   }
 
+  async function onDeleteRooster(id: number) {
+    setError("");
+    setMessage("");
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/roosters?id=${id}`, { method: "DELETE" });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error ?? "No se pudo borrar el gallo");
+      }
+
+      setPairs([]);
+      setMessage(`Gallo ${id} eliminado correctamente`);
+      await loadRoosters();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error inesperado");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const printLink = useMemo(() => {
     const printable = pairs.map((pair, index) => ({
       index: index + 1,
@@ -208,6 +229,7 @@ export default function Home() {
                 <th className="border p-2">Color gallo</th>
                 <th className="border p-2">Color pata</th>
                 <th className="border p-2">Peso (lb)</th>
+                <th className="border p-2">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -219,11 +241,21 @@ export default function Home() {
                   <td className="border p-2">{rooster.color_gallo}</td>
                   <td className="border p-2">{rooster.color_pata}</td>
                   <td className="border p-2 text-right">{rooster.peso_libras.toFixed(2)}</td>
+                  <td className="border p-2 text-center">
+                    <button
+                      type="button"
+                      onClick={() => onDeleteRooster(rooster.id)}
+                      className="rounded border px-2 py-1 text-xs"
+                      disabled={loading}
+                    >
+                      Borrar
+                    </button>
+                  </td>
                 </tr>
               ))}
               {roosters.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="border p-3 text-center opacity-70">
+                  <td colSpan={7} className="border p-3 text-center opacity-70">
                     No hay gallos registrados.
                   </td>
                 </tr>

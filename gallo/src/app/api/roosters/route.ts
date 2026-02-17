@@ -51,3 +51,38 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ data }, { status: 201 });
 }
+
+export async function DELETE(request: Request) {
+  const supabase = getSupabase();
+  const { searchParams } = new URL(request.url);
+  const id = Number(searchParams.get("id"));
+
+  if (Number.isNaN(id) || id <= 0) {
+    return NextResponse.json({ error: "Debe enviar un id válido en querystring (?id=)" }, { status: 400 });
+  }
+
+  const { error: deleteMatchesError } = await supabase
+    .from("emparejamientos")
+    .delete()
+    .or(`gallo_a_id.eq.${id},gallo_b_id.eq.${id}`);
+
+  if (deleteMatchesError) {
+    return NextResponse.json({ error: deleteMatchesError.message }, { status: 500 });
+  }
+
+  const { data, error } = await supabase
+    .from("gallos")
+    .delete()
+    .eq("id", id)
+    .select("id");
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (!data || data.length === 0) {
+    return NextResponse.json({ error: "Gallo no encontrado" }, { status: 404 });
+  }
+
+  return NextResponse.json({ deletedId: id });
+}

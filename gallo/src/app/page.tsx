@@ -387,7 +387,7 @@ export default function Home() {
       </div>
 
       <aside className="fixed left-0 top-0 z-10 h-screen w-72 border-r border-slate-800 bg-slate-950/80 p-5 backdrop-blur">
-        <h2 className="mb-1 text-xl font-semibold tracking-wide">Coliseo 1v1</h2>
+        <h2 className="mb-1 text-xl font-semibold tracking-wide">Coliseo donde el Pelao</h2>
         <p className="mb-6 text-xs text-slate-400">Panel de operación</p>
 
         <nav className="space-y-2">
@@ -443,7 +443,7 @@ export default function Home() {
       </aside>
 
       <main className="relative z-10 ml-72 min-h-screen p-6 md:p-8">
-        <h1 className="mb-2 text-3xl font-bold tracking-tight md:text-4xl">Sistema de Sorteo 1v1</h1>
+        <h1 className="mb-2 text-3xl font-bold tracking-tight md:text-4xl">Cotejas Coliseo donde el Pelao</h1>
         <p className="mb-6 text-sm text-slate-300 md:text-base">
           Empareja por peso y no permite cruces entre gallos del mismo galpón.
         </p>
@@ -651,14 +651,14 @@ export default function Home() {
           <section className="space-y-6">
             <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-2xl shadow-black/20">
               <div className="mb-4 flex flex-wrap items-center gap-2">
-                <h2 className="text-xl font-semibold text-emerald-200">Sorteo de emparejamientos 1v1</h2>
+                <h2 className="text-xl font-semibold text-emerald-200">Sorteo de Cotejas</h2>
                 <button
                   type="button"
                   onClick={onDrawPairs}
                   disabled={loading || roosters.length < 2}
                   className="rounded-lg bg-emerald-500 px-5 py-3 text-base font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:opacity-60"
                 >
-                  Generar todos los 1v1
+                  Generar enfretamientos
                 </button>
                 <button
                   type="button"
@@ -686,7 +686,7 @@ export default function Home() {
               </div>
 
               <p className="mb-4 text-sm text-slate-300">
-                Este botón genera en una sola vez todos los 1v1 posibles del día. Ejemplo: 8 inscritos → 4 peleas.
+                Este botón genera en una sola vez todos los enfretamientos disponibles
               </p>
 
               {drawSummary && (

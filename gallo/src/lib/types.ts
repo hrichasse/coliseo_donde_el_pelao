@@ -1,6 +1,7 @@
 export type Rooster = {
   id: number;
   created_at?: string;
+  nombre_gallo: string;
   galpon: string;
   propietario: string;
   color_gallo: string;

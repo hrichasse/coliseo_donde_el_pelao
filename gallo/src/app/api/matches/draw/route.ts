@@ -5,6 +5,11 @@ import type { Rooster } from "@/lib/types";
 
 export async function POST() {
   const supabase = getSupabase();
+  const { error: clearError } = await supabase.from("emparejamientos").delete().neq("id", 0);
+  if (clearError) {
+    return NextResponse.json({ error: clearError.message }, { status: 500 });
+  }
+
   const { data: roosters, error: roostersError } = await supabase
     .from("gallos")
     .select("*")
@@ -38,7 +43,7 @@ export async function POST() {
     .from("emparejamientos")
     .insert(insertPayload)
     .select(
-      "id, gallo_a_id, gallo_b_id, diferencia_gramos, created_at, gallo_a:gallo_a_id(id, galpon, propietario, peso_libras), gallo_b:gallo_b_id(id, galpon, propietario, peso_libras)",
+      "id, gallo_a_id, gallo_b_id, diferencia_gramos, created_at, gallo_a:gallo_a_id(id, nombre_gallo, galpon, propietario, peso_libras), gallo_b:gallo_b_id(id, nombre_gallo, galpon, propietario, peso_libras)",
     )
     .order("id", { ascending: true });
 
@@ -50,6 +55,8 @@ export async function POST() {
     id: row.id,
     gallo_a_id: row.gallo_a_id,
     gallo_b_id: row.gallo_b_id,
+    gallo_a_nombre: row.gallo_a?.nombre_gallo ?? "",
+    gallo_b_nombre: row.gallo_b?.nombre_gallo ?? "",
     galpon_a: row.gallo_a?.galpon ?? "",
     galpon_b: row.gallo_b?.galpon ?? "",
     propietario_a: row.gallo_a?.propietario ?? "",

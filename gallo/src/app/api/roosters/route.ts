@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   const supabase = getSupabase();
   const body = await request.json();
 
-  const required = ["galpon", "propietario", "color_gallo", "color_pata", "peso_libras"];
+  const required = ["nombre_gallo", "galpon", "propietario", "color_gallo", "color_pata", "peso_libras"];
   for (const field of required) {
     if (body[field] === undefined || body[field] === null || body[field] === "") {
       return NextResponse.json({ error: `El campo ${field} es requerido` }, { status: 400 });
@@ -35,6 +35,7 @@ export async function POST(request: Request) {
     .from("gallos")
     .insert([
       {
+        nombre_gallo: String(body.nombre_gallo).trim(),
         galpon: String(body.galpon).trim(),
         propietario: String(body.propietario).trim(),
         color_gallo: String(body.color_gallo).trim(),
@@ -85,4 +86,33 @@ export async function DELETE(request: Request) {
   }
 
   return NextResponse.json({ deletedId: id });
+}
+
+export async function PATCH(request: Request) {
+  const supabase = getSupabase();
+  const body = await request.json();
+
+  const id = Number(body.id);
+  const galpon = String(body.galpon ?? "").trim();
+
+  if (Number.isNaN(id) || id <= 0) {
+    return NextResponse.json({ error: "Debe enviar un id válido" }, { status: 400 });
+  }
+
+  if (!galpon) {
+    return NextResponse.json({ error: "Debe enviar un galpón válido" }, { status: 400 });
+  }
+
+  const { data, error } = await supabase
+    .from("gallos")
+    .update({ galpon })
+    .eq("id", id)
+    .select("*")
+    .single();
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ data });
 }

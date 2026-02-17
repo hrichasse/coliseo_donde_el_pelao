@@ -1,8 +1,10 @@
 type PrintablePair = {
   index: number;
+  galloA: string;
   galponA: string;
   propietarioA: string;
   pesoA: string;
+  galloB: string;
   galponB: string;
   propietarioB: string;
   pesoB: string;
@@ -37,9 +39,11 @@ export default async function PrintPage({
         <thead>
           <tr>
             <th className="border p-2">#</th>
+            <th className="border p-2">Gallo A</th>
             <th className="border p-2">Galpón A</th>
             <th className="border p-2">Propietario A</th>
             <th className="border p-2">Peso A (lb)</th>
+            <th className="border p-2">Gallo B</th>
             <th className="border p-2">Galpón B</th>
             <th className="border p-2">Propietario B</th>
             <th className="border p-2">Peso B (lb)</th>
@@ -51,9 +55,11 @@ export default async function PrintPage({
           {pairs.map((pair) => (
             <tr key={`${pair.index}-${pair.galponA}-${pair.galponB}`}>
               <td className="border p-2 text-center">{pair.index}</td>
+              <td className="border p-2">{pair.galloA}</td>
               <td className="border p-2">{pair.galponA}</td>
               <td className="border p-2">{pair.propietarioA}</td>
               <td className="border p-2 text-right">{pair.pesoA}</td>
+              <td className="border p-2">{pair.galloB}</td>
               <td className="border p-2">{pair.galponB}</td>
               <td className="border p-2">{pair.propietarioB}</td>
               <td className="border p-2 text-right">{pair.pesoB}</td>

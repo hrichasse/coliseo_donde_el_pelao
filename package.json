@@ -1,0 +1,10 @@
+{
+  "name": "gallo-workspace",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix gallo run dev",
+    "build": "npm --prefix gallo run build",
+    "start": "npm --prefix gallo run start",
+    "lint": "npm --prefix gallo run lint"
+  }
+}

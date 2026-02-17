@@ -70,5 +70,11 @@ export async function POST() {
   return NextResponse.json({
     data: normalized,
     sobrantes,
+    resumen: {
+      total_inscritos: typedRoosters.length,
+      total_1v1: normalized.length,
+      total_sobrantes: sobrantes.length,
+      total_1v1_posibles: Math.floor(typedRoosters.length / 2),
+    },
   });
 }

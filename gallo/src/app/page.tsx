@@ -53,6 +53,12 @@ export default function Home() {
   const [galponNuevo, setGalponNuevo] = useState("");
   const [assignGalloId, setAssignGalloId] = useState<string>("");
   const [assignGalpon, setAssignGalpon] = useState<string>("");
+  const [drawSummary, setDrawSummary] = useState<{
+    total_inscritos: number;
+    total_1v1: number;
+    total_sobrantes: number;
+    total_1v1_posibles: number;
+  } | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string>("");
   const [error, setError] = useState<string>("");
@@ -167,10 +173,15 @@ export default function Home() {
       }
 
       setPairs(payload.data ?? []);
+      setDrawSummary(payload.resumen ?? null);
       if ((payload.sobrantes ?? []).length > 0) {
-        setMessage(`Sorteo generado. Gallos sin pareja: ${payload.sobrantes.length}`);
+        setMessage(
+          `Sorteo completo: ${payload.resumen?.total_1v1 ?? 0} de ${payload.resumen?.total_1v1_posibles ?? 0} peleas posibles. Sobrantes: ${payload.sobrantes.length}`,
+        );
       } else {
-        setMessage("Sorteo generado correctamente");
+        setMessage(
+          `Sorteo completo: ${payload.resumen?.total_1v1 ?? 0} peleas generadas para ${payload.resumen?.total_inscritos ?? 0} gallos inscritos.`,
+        );
       }
       setDbMatchesCount((payload.data ?? []).length);
     } catch (e) {
@@ -197,6 +208,7 @@ export default function Home() {
       }
 
       setPairs([]);
+      setDrawSummary(null);
       setMessage(`Gallo ${id} eliminado correctamente`);
       await loadRoosters();
       await loadMatchesCount();
@@ -224,6 +236,7 @@ export default function Home() {
       }
 
       setPairs([]);
+      setDrawSummary(null);
       setDbMatchesCount(0);
       setMessage("Emparejamientos limpiados correctamente");
     } catch (e) {
@@ -366,71 +379,91 @@ export default function Home() {
   }, [roosters]);
 
   return (
-    <div className="min-h-screen bg-background">
-      <aside className="fixed left-0 top-0 h-screen w-64 border-r p-4">
-        <h2 className="mb-6 text-xl font-bold">Menú</h2>
+    <div className="relative min-h-screen bg-slate-950 text-slate-100">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -left-20 top-10 h-72 w-72 rounded-full bg-cyan-500/20 blur-3xl" />
+        <div className="absolute right-10 top-24 h-72 w-72 rounded-full bg-fuchsia-500/20 blur-3xl" />
+        <div className="absolute bottom-10 left-1/3 h-72 w-72 rounded-full bg-emerald-500/20 blur-3xl" />
+      </div>
+
+      <aside className="fixed left-0 top-0 z-10 h-screen w-72 border-r border-slate-800 bg-slate-950/80 p-5 backdrop-blur">
+        <h2 className="mb-1 text-xl font-semibold tracking-wide">Coliseo 1v1</h2>
+        <p className="mb-6 text-xs text-slate-400">Panel de operación</p>
+
         <nav className="space-y-2">
           <button
             type="button"
             onClick={() => setActiveSection("gallos")}
-            className={`w-full rounded px-3 py-2 text-left ${activeSection === "gallos" ? "bg-foreground text-background" : "border"}`}
+            className={`w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium transition ${
+              activeSection === "gallos"
+                ? "bg-cyan-500/20 text-cyan-200 ring-1 ring-cyan-400/40"
+                : "border border-slate-700 text-slate-300 hover:border-slate-500 hover:bg-slate-900"
+            }`}
           >
             Gallos
           </button>
           <button
             type="button"
             onClick={() => setActiveSection("galpones")}
-            className={`w-full rounded px-3 py-2 text-left ${activeSection === "galpones" ? "bg-foreground text-background" : "border"}`}
+            className={`w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium transition ${
+              activeSection === "galpones"
+                ? "bg-fuchsia-500/20 text-fuchsia-200 ring-1 ring-fuchsia-400/40"
+                : "border border-slate-700 text-slate-300 hover:border-slate-500 hover:bg-slate-900"
+            }`}
           >
             Galpón
           </button>
           <button
             type="button"
             onClick={() => setActiveSection("sorteo")}
-            className={`w-full rounded px-3 py-2 text-left ${activeSection === "sorteo" ? "bg-foreground text-background" : "border"}`}
+            className={`w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium transition ${
+              activeSection === "sorteo"
+                ? "bg-emerald-500/20 text-emerald-200 ring-1 ring-emerald-400/40"
+                : "border border-slate-700 text-slate-300 hover:border-slate-500 hover:bg-slate-900"
+            }`}
           >
             Sorteo
           </button>
         </nav>
 
         <div className="mt-8 space-y-3 text-sm">
-          <div className="rounded border p-3">
-            <p className="opacity-70">Gallos</p>
-            <p className="text-xl font-bold">{roosters.length}</p>
+          <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-3">
+            <p className="text-slate-400">Gallos</p>
+            <p className="text-2xl font-bold text-cyan-300">{roosters.length}</p>
           </div>
-          <div className="rounded border p-3">
-            <p className="opacity-70">Galpones</p>
-            <p className="text-xl font-bold">{galpones.length}</p>
+          <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-3">
+            <p className="text-slate-400">Galpones</p>
+            <p className="text-2xl font-bold text-fuchsia-300">{galpones.length}</p>
           </div>
-          <div className="rounded border p-3">
-            <p className="opacity-70">1v1</p>
-            <p className="text-xl font-bold">{pairs.length > 0 ? pairs.length : dbMatchesCount}</p>
+          <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-3">
+            <p className="text-slate-400">1v1</p>
+            <p className="text-2xl font-bold text-emerald-300">{pairs.length > 0 ? pairs.length : dbMatchesCount}</p>
           </div>
         </div>
       </aside>
 
-      <main className="ml-64 min-h-screen p-6">
-        <h1 className="mb-2 text-3xl font-bold">Sistema de Sorteo 1v1</h1>
-        <p className="mb-6 text-sm opacity-80">
+      <main className="relative z-10 ml-72 min-h-screen p-6 md:p-8">
+        <h1 className="mb-2 text-3xl font-bold tracking-tight md:text-4xl">Sistema de Sorteo 1v1</h1>
+        <p className="mb-6 text-sm text-slate-300 md:text-base">
           Empareja por peso y no permite cruces entre gallos del mismo galpón.
         </p>
 
         {activeSection === "gallos" && (
           <section className="space-y-6">
-            <div className="rounded-lg border p-4">
-              <h2 className="mb-4 text-xl font-semibold">Registro de gallos</h2>
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-2xl shadow-black/20">
+              <h2 className="mb-4 text-xl font-semibold text-cyan-200">Registro de gallos</h2>
               <form onSubmit={onSubmit} className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
                 <input
                   value={form.nombre_gallo}
                   onChange={(e) => setForm((prev) => ({ ...prev, nombre_gallo: e.target.value }))}
                   placeholder="Nombre del gallo"
-                  className="rounded border px-3 py-2"
+                  className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-slate-100 outline-none ring-cyan-400/50 placeholder:text-slate-500 focus:ring"
                   required
                 />
                 <select
                   value={form.galpon}
                   onChange={(e) => setForm((prev) => ({ ...prev, galpon: e.target.value }))}
-                  className="rounded border px-3 py-2"
+                  className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-slate-100 outline-none ring-cyan-400/50 focus:ring"
                   required
                 >
                   <option value="">Seleccione galpón</option>
@@ -444,21 +477,21 @@ export default function Home() {
                   value={form.propietario}
                   onChange={(e) => setForm((prev) => ({ ...prev, propietario: e.target.value }))}
                   placeholder="Propietario"
-                  className="rounded border px-3 py-2"
+                  className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-slate-100 outline-none ring-cyan-400/50 placeholder:text-slate-500 focus:ring"
                   required
                 />
                 <input
                   value={form.color_gallo}
                   onChange={(e) => setForm((prev) => ({ ...prev, color_gallo: e.target.value }))}
                   placeholder="Color de gallo"
-                  className="rounded border px-3 py-2"
+                  className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-slate-100 outline-none ring-cyan-400/50 placeholder:text-slate-500 focus:ring"
                   required
                 />
                 <input
                   value={form.color_pata}
                   onChange={(e) => setForm((prev) => ({ ...prev, color_pata: e.target.value }))}
                   placeholder="Color de pata"
-                  className="rounded border px-3 py-2"
+                  className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-slate-100 outline-none ring-cyan-400/50 placeholder:text-slate-500 focus:ring"
                   required
                 />
                 <input
@@ -468,50 +501,50 @@ export default function Home() {
                   type="number"
                   step="0.01"
                   min="0"
-                  className="rounded border px-3 py-2"
+                  className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-slate-100 outline-none ring-cyan-400/50 placeholder:text-slate-500 focus:ring"
                   required
                 />
                 <button
                   type="submit"
                   disabled={loading}
-                  className="rounded bg-foreground px-5 py-3 text-base font-semibold text-background disabled:opacity-60"
+                  className="rounded-lg bg-cyan-500 px-5 py-3 text-base font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60"
                 >
                   Guardar gallo
                 </button>
               </form>
             </div>
 
-            <div className="rounded-lg border p-4">
-              <h2 className="mb-4 text-xl font-semibold">Listado de gallos inscritos</h2>
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-2xl shadow-black/20">
+              <h2 className="mb-4 text-xl font-semibold text-cyan-200">Listado de gallos inscritos</h2>
               <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-sm">
+                <table className="w-full border-collapse text-sm text-slate-100">
                   <thead>
                     <tr>
-                      <th className="border p-2">ID</th>
-                      <th className="border p-2">Gallo</th>
-                      <th className="border p-2">Galpón</th>
-                      <th className="border p-2">Propietario</th>
-                      <th className="border p-2">Color gallo</th>
-                      <th className="border p-2">Color pata</th>
-                      <th className="border p-2">Peso (lb)</th>
-                      <th className="border p-2">Acciones</th>
+                      <th className="border border-slate-700 bg-slate-800 p-2">ID</th>
+                      <th className="border border-slate-700 bg-slate-800 p-2">Gallo</th>
+                      <th className="border border-slate-700 bg-slate-800 p-2">Galpón</th>
+                      <th className="border border-slate-700 bg-slate-800 p-2">Propietario</th>
+                      <th className="border border-slate-700 bg-slate-800 p-2">Color gallo</th>
+                      <th className="border border-slate-700 bg-slate-800 p-2">Color pata</th>
+                      <th className="border border-slate-700 bg-slate-800 p-2">Peso (lb)</th>
+                      <th className="border border-slate-700 bg-slate-800 p-2">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {roosters.map((rooster) => (
-                      <tr key={rooster.id}>
-                        <td className="border p-2 text-center">{rooster.id}</td>
-                        <td className="border p-2">{rooster.nombre_gallo}</td>
-                        <td className="border p-2">{rooster.galpon}</td>
-                        <td className="border p-2">{rooster.propietario}</td>
-                        <td className="border p-2">{rooster.color_gallo}</td>
-                        <td className="border p-2">{rooster.color_pata}</td>
-                        <td className="border p-2 text-right">{rooster.peso_libras.toFixed(2)}</td>
-                        <td className="border p-2 text-center">
+                      <tr key={rooster.id} className="hover:bg-slate-800/70">
+                        <td className="border border-slate-700 p-2 text-center">{rooster.id}</td>
+                        <td className="border border-slate-700 p-2">{rooster.nombre_gallo}</td>
+                        <td className="border border-slate-700 p-2">{rooster.galpon}</td>
+                        <td className="border border-slate-700 p-2">{rooster.propietario}</td>
+                        <td className="border border-slate-700 p-2">{rooster.color_gallo}</td>
+                        <td className="border border-slate-700 p-2">{rooster.color_pata}</td>
+                        <td className="border border-slate-700 p-2 text-right">{rooster.peso_libras.toFixed(2)}</td>
+                        <td className="border border-slate-700 p-2 text-center">
                           <button
                             type="button"
                             onClick={() => onDeleteRooster(rooster.id)}
-                            className="rounded border px-2 py-1 text-xs"
+                            className="rounded-md border border-rose-400/40 px-2.5 py-1 text-xs text-rose-200 transition hover:bg-rose-500/20"
                             disabled={loading}
                           >
                             Borrar
@@ -521,7 +554,7 @@ export default function Home() {
                     ))}
                     {roosters.length === 0 && (
                       <tr>
-                        <td colSpan={8} className="border p-3 text-center opacity-70">
+                        <td colSpan={8} className="border border-slate-700 p-3 text-center text-slate-400">
                           No hay gallos registrados.
                         </td>
                       </tr>
@@ -535,33 +568,33 @@ export default function Home() {
 
         {activeSection === "galpones" && (
           <section className="space-y-6">
-            <div className="rounded-lg border p-4">
-              <h2 className="mb-4 text-xl font-semibold">Registrar galpón</h2>
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-2xl shadow-black/20">
+              <h2 className="mb-4 text-xl font-semibold text-fuchsia-200">Registrar galpón</h2>
               <form onSubmit={onCreateGalpon} className="flex flex-col gap-3 md:flex-row">
                 <input
                   value={galponNuevo}
                   onChange={(e) => setGalponNuevo(e.target.value)}
                   placeholder="Nombre del galpón"
-                  className="flex-1 rounded border px-3 py-2"
+                  className="flex-1 rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-slate-100 outline-none ring-fuchsia-400/50 placeholder:text-slate-500 focus:ring"
                   required
                 />
                 <button
                   type="submit"
                   disabled={loading}
-                  className="rounded bg-foreground px-5 py-3 text-base font-semibold text-background disabled:opacity-60"
+                  className="rounded-lg bg-fuchsia-500 px-5 py-3 text-base font-semibold text-slate-950 transition hover:bg-fuchsia-400 disabled:opacity-60"
                 >
                   Guardar galpón
                 </button>
               </form>
             </div>
 
-            <div className="rounded-lg border p-4">
-              <h2 className="mb-4 text-xl font-semibold">Asignar gallo a galpón</h2>
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-2xl shadow-black/20">
+              <h2 className="mb-4 text-xl font-semibold text-fuchsia-200">Asignar gallo a galpón</h2>
               <form onSubmit={onAssignGalloGalpon} className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <select
                   value={assignGalloId}
                   onChange={(e) => setAssignGalloId(e.target.value)}
-                  className="rounded border px-3 py-2"
+                  className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-slate-100 outline-none ring-fuchsia-400/50 focus:ring"
                   required
                 >
                   <option value="">Seleccione gallo</option>
@@ -574,7 +607,7 @@ export default function Home() {
                 <select
                   value={assignGalpon}
                   onChange={(e) => setAssignGalpon(e.target.value)}
-                  className="rounded border px-3 py-2"
+                  className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-slate-100 outline-none ring-fuchsia-400/50 focus:ring"
                   required
                 >
                   <option value="">Seleccione galpón</option>
@@ -587,25 +620,25 @@ export default function Home() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="rounded bg-foreground px-5 py-3 text-base font-semibold text-background disabled:opacity-60"
+                  className="rounded-lg bg-fuchsia-500 px-5 py-3 text-base font-semibold text-slate-950 transition hover:bg-fuchsia-400 disabled:opacity-60"
                 >
                   Asignar
                 </button>
               </form>
             </div>
 
-            <div className="rounded-lg border p-4">
-              <h2 className="mb-4 text-xl font-semibold">Galpones y gallos pertenecientes</h2>
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-2xl shadow-black/20">
+              <h2 className="mb-4 text-xl font-semibold text-fuchsia-200">Galpones y gallos pertenecientes</h2>
               {galponesConGallos.length === 0 ? (
-                <p className="text-sm opacity-70">Aún no hay galpones con gallos.</p>
+                <p className="text-sm text-slate-400">Aún no hay galpones con gallos.</p>
               ) : (
                 <div className="space-y-3">
                   {galponesConGallos.map((item) => (
-                    <div key={item.galpon} className="rounded border p-3">
-                      <p className="font-medium">
+                    <div key={item.galpon} className="rounded-xl border border-slate-700 bg-slate-800/50 p-3">
+                      <p className="font-medium text-fuchsia-100">
                         {item.galpon} ({item.cantidad} gallos)
                       </p>
-                      <p className="text-sm opacity-80">{item.nombres.join(", ")}</p>
+                      <p className="text-sm text-slate-300">{item.nombres.join(", ")}</p>
                     </div>
                   ))}
                 </div>
@@ -616,29 +649,29 @@ export default function Home() {
 
         {activeSection === "sorteo" && (
           <section className="space-y-6">
-            <div className="rounded-lg border p-4">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-2xl shadow-black/20">
               <div className="mb-4 flex flex-wrap items-center gap-2">
-                <h2 className="text-xl font-semibold">Sorteo de emparejamientos 1v1</h2>
+                <h2 className="text-xl font-semibold text-emerald-200">Sorteo de emparejamientos 1v1</h2>
                 <button
                   type="button"
                   onClick={onDrawPairs}
                   disabled={loading || roosters.length < 2}
-                  className="rounded bg-foreground px-5 py-3 text-base font-semibold text-background disabled:opacity-60"
+                  className="rounded-lg bg-emerald-500 px-5 py-3 text-base font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:opacity-60"
                 >
-                  Nuevo sorteo 1v1
+                  Generar todos los 1v1
                 </button>
                 <button
                   type="button"
                   onClick={onClearMatches}
                   disabled={loading || (pairs.length === 0 && dbMatchesCount === 0)}
-                  className="rounded border px-5 py-3 text-base font-semibold disabled:opacity-50"
+                  className="rounded-lg border border-slate-600 px-5 py-3 text-base font-semibold text-slate-200 transition hover:bg-slate-800 disabled:opacity-50"
                 >
                   Limpiar sorteo
                 </button>
                 <button
                   type="button"
                   onClick={onDownloadPdf}
-                  className={`rounded border px-5 py-3 text-base font-semibold ${pairs.length === 0 ? "pointer-events-none opacity-50" : ""}`}
+                  className={`rounded-lg border border-slate-600 px-5 py-3 text-base font-semibold text-slate-200 transition hover:bg-slate-800 ${pairs.length === 0 ? "pointer-events-none opacity-50" : ""}`}
                 >
                   Descargar PDF
                 </button>
@@ -646,61 +679,62 @@ export default function Home() {
                   href={printLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`rounded border px-5 py-3 text-base font-semibold ${pairs.length === 0 ? "pointer-events-none opacity-50" : ""}`}
+                  className={`rounded-lg border border-slate-600 px-5 py-3 text-base font-semibold text-slate-200 transition hover:bg-slate-800 ${pairs.length === 0 ? "pointer-events-none opacity-50" : ""}`}
                 >
                   Imprimir acta
                 </a>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-sm">
-                  <thead>
-                    <tr>
-                      <th className="border p-2">#</th>
-                      <th className="border p-2">Gallo A</th>
-                      <th className="border p-2">Galpón A</th>
-                      <th className="border p-2">Propietario A</th>
-                      <th className="border p-2">Peso A</th>
-                      <th className="border p-2">Gallo B</th>
-                      <th className="border p-2">Galpón B</th>
-                      <th className="border p-2">Propietario B</th>
-                      <th className="border p-2">Peso B</th>
-                      <th className="border p-2">Dif (g)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pairs.map((pair, index) => (
-                      <tr key={pair.id}>
-                        <td className="border p-2 text-center">{index + 1}</td>
-                        <td className="border p-2">{pair.gallo_a_nombre}</td>
-                        <td className="border p-2">{pair.galpon_a}</td>
-                        <td className="border p-2">{pair.propietario_a}</td>
-                        <td className="border p-2 text-right">{pair.peso_a_libras.toFixed(2)}</td>
-                        <td className="border p-2">{pair.gallo_b_nombre}</td>
-                        <td className="border p-2">{pair.galpon_b}</td>
-                        <td className="border p-2">{pair.propietario_b}</td>
-                        <td className="border p-2 text-right">{pair.peso_b_libras.toFixed(2)}</td>
-                        <td className="border p-2 text-right">{pair.diferencia_gramos}</td>
-                      </tr>
-                    ))}
-                    {pairs.length === 0 && (
-                      <tr>
-                        <td colSpan={10} className="border p-3 text-center opacity-70">
-                          Aún no se ha generado el sorteo.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <p className="mb-4 text-sm text-slate-300">
+                Este botón genera en una sola vez todos los 1v1 posibles del día. Ejemplo: 8 inscritos → 4 peleas.
+              </p>
+
+              {drawSummary && (
+                <div className="mb-4 rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-3 text-sm text-emerald-200">
+                  Inscritos: {drawSummary.total_inscritos} | 1v1 posibles: {drawSummary.total_1v1_posibles} | 1v1 generados: {drawSummary.total_1v1} | Sobrantes: {drawSummary.total_sobrantes}
+                </div>
+              )}
+
+              {pairs.length === 0 ? (
+                <div className="rounded-xl border border-slate-700 p-4 text-center text-slate-400">Aún no se ha generado el sorteo.</div>
+              ) : (
+                <div className="space-y-3">
+                  {pairs.map((pair, index) => (
+                    <div key={pair.id} className="rounded-xl border border-slate-700 bg-slate-800/40 p-4">
+                      <div className="mb-3 flex items-center justify-between">
+                        <p className="text-sm font-semibold text-emerald-300">Pelea #{index + 1}</p>
+                        <p className="text-xs text-slate-300">Diferencia: {pair.diferencia_gramos} g</p>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <div className="rounded-lg border border-cyan-400/30 bg-cyan-500/10 p-3">
+                          <p className="mb-1 text-xs font-semibold text-cyan-300">GALLO A</p>
+                          <p className="text-base font-semibold">{pair.gallo_a_nombre}</p>
+                          <p className="text-sm text-slate-300">Galpón: {pair.galpon_a}</p>
+                          <p className="text-sm text-slate-300">Propietario: {pair.propietario_a}</p>
+                          <p className="text-sm text-slate-300">Peso: {pair.peso_a_libras.toFixed(2)} lb</p>
+                        </div>
+
+                        <div className="rounded-lg border border-fuchsia-400/30 bg-fuchsia-500/10 p-3">
+                          <p className="mb-1 text-xs font-semibold text-fuchsia-300">GALLO B</p>
+                          <p className="text-base font-semibold">{pair.gallo_b_nombre}</p>
+                          <p className="text-sm text-slate-300">Galpón: {pair.galpon_b}</p>
+                          <p className="text-sm text-slate-300">Propietario: {pair.propietario_b}</p>
+                          <p className="text-sm text-slate-300">Peso: {pair.peso_b_libras.toFixed(2)} lb</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </section>
         )}
 
         {(message || error) && (
-          <div className="mt-4">
-            {message && <p className="text-green-600">{message}</p>}
-            {error && <p className="text-red-600">{error}</p>}
+          <div className="mt-4 space-y-2">
+            {message && <p className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-emerald-300">{message}</p>}
+            {error && <p className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-rose-300">{error}</p>}
           </div>
         )}
       </main>

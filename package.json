@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "npm --prefix gallo run dev",
+    "dev:fix": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force; $lock='C:\\workspace\\Gallo\\gallo\\.next\\dev\\lock'; if (Test-Path $lock) { Remove-Item $lock -Force }; npm --prefix gallo run dev\"",
     "build": "npm --prefix gallo run build",
     "start": "npm --prefix gallo run start",
     "lint": "npm --prefix gallo run lint"

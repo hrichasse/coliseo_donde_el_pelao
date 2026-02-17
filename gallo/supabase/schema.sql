@@ -50,6 +50,12 @@ for insert
 to anon
 with check (true);
 
+create policy galpones_delete_anon
+on public.galpones
+for delete
+to anon
+using (true);
+
 create policy gallos_select_anon
 on public.gallos
 for select

@@ -37,3 +37,24 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ data }, { status: 201 });
 }
+
+export async function DELETE(request: Request) {
+  const supabase = getSupabase();
+  const { searchParams } = new URL(request.url);
+  const nombre = searchParams.get("nombre");
+
+  if (!nombre) {
+    return NextResponse.json({ error: "El nombre del galpón es requerido como parámetro (?nombre=...)" }, { status: 400 });
+  }
+
+  const { error } = await supabase
+    .from("galpones")
+    .delete()
+    .eq("nombre", nombre);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
+}

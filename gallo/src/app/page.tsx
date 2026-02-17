@@ -264,6 +264,32 @@ export default function Home() {
     }
   }
 
+  async function onDeleteGalpon(nombre: string) {
+    const accepted = window.confirm(`¿Seguro que deseas borrar el galpón "${nombre}"? Esto no eliminará los gallos asociados.`);
+    if (!accepted) {
+      return;
+    }
+
+    setError("");
+    setMessage("");
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/galpones?nombre=${encodeURIComponent(nombre)}`, { method: "DELETE" });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error ?? "No se pudo borrar el galpón");
+      }
+
+      setMessage(`Galpón "${nombre}" eliminado correctamente`);
+      await loadGalpones();
+      await loadRoosters();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error inesperado");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function onClearMatches() {
     const accepted = window.confirm("¿Deseas limpiar los emparejamientos del torneo actual?");
     if (!accepted) {
@@ -576,6 +602,17 @@ export default function Home() {
             <p className="text-2xl font-bold text-emerald-300">{pairs.length > 0 ? pairs.length : dbMatchesCount}</p>
           </div>
         </div>
+
+        {/* Logo Section */}
+        <div className="mt-12 flex justify-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img 
+            src="/images/logo.jpeg" 
+            alt="Coliseo donde el Pelao" 
+            style={{width: '280px', height: '280px', borderRadius: '0.5rem'}}
+            className="shadow-2xl shadow-black/40 object-contain"
+          />
+        </div>
       </aside>
 
       <main className="relative z-10 ml-72 min-h-screen p-6 md:p-8">
@@ -630,16 +667,75 @@ export default function Home() {
                   className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-slate-100 outline-none ring-cyan-400/50 placeholder:text-slate-500 focus:ring"
                   required
                 />
-                <input
-                  value={form.peso_libras}
-                  onChange={(e) => setForm((prev) => ({ ...prev, peso_libras: e.target.value }))}
-                  placeholder="Peso (libras)"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-slate-100 outline-none ring-cyan-400/50 placeholder:text-slate-500 focus:ring"
-                  required
-                />
+                
+                <div className="col-span-full">
+                  <label className="block mb-2 text-sm font-medium text-slate-300">Peso (libras)</label>
+                  <div className="grid grid-cols-12 gap-1.5 p-3 rounded-lg border border-slate-700 bg-slate-950/70">
+                    {/* Columna 3.x */}
+                    <div className="col-span-4">
+                      <div className="text-xs font-semibold text-fuchsia-400 mb-2 text-center">3.x</div>
+                      <div className="space-y-1">
+                        {Array.from({ length: 16 }, (_, i) => (3.0 + i * 0.01).toFixed(2)).map((peso, idx) => (
+                          <button
+                            key={`3x-${idx}`}
+                            type="button"
+                            onClick={() => setForm((prev) => ({ ...prev, peso_libras: peso }))}
+                            className={`w-full text-xs py-1 px-2 rounded transition ${
+                              form.peso_libras === peso
+                                ? "bg-fuchsia-500 text-white font-semibold"
+                                : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                            }`}
+                          >
+                            {peso}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Columna 4.x */}
+                    <div className="col-span-4">
+                      <div className="text-xs font-semibold text-cyan-400 mb-2 text-center">4.x</div>
+                      <div className="space-y-1">
+                        {Array.from({ length: 16 }, (_, i) => (4.0 + i * 0.01).toFixed(2)).map((peso, idx) => (
+                          <button
+                            key={`4x-${idx}`}
+                            type="button"
+                            onClick={() => setForm((prev) => ({ ...prev, peso_libras: peso }))}
+                            className={`w-full text-xs py-1 px-2 rounded transition ${
+                              form.peso_libras === peso
+                                ? "bg-cyan-500 text-white font-semibold"
+                                : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                            }`}
+                          >
+                            {peso}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Columna 5.x */}
+                    <div className="col-span-4">
+                      <div className="text-xs font-semibold text-emerald-400 mb-2 text-center">5.x</div>
+                      <div className="space-y-1">
+                        {Array.from({ length: 16 }, (_, i) => (5.0 + i * 0.01).toFixed(2)).map((peso, idx) => (
+                          <button
+                            key={`5x-${idx}`}
+                            type="button"
+                            onClick={() => setForm((prev) => ({ ...prev, peso_libras: peso }))}
+                            className={`w-full text-xs py-1 px-2 rounded transition ${
+                              form.peso_libras === peso
+                                ? "bg-emerald-500 text-white font-semibold"
+                                : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                            }`}
+                          >
+                            {peso}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <button
                   type="submit"
                   disabled={loading}
@@ -771,10 +867,23 @@ export default function Home() {
                 <div className="space-y-3">
                   {galponesConGallos.map((item) => (
                     <div key={item.galpon} className="rounded-xl border border-slate-700 bg-slate-800/50 p-3">
-                      <p className="font-medium text-fuchsia-100">
-                        {item.galpon} ({item.cantidad} gallos)
-                      </p>
-                      <p className="text-sm text-slate-300">{item.nombres.join(", ")}</p>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <p className="font-medium text-fuchsia-100">
+                            {item.galpon} ({item.cantidad} gallos)
+                          </p>
+                          <p className="text-sm text-slate-300">{item.nombres.join(", ")}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => onDeleteGalpon(item.galpon)}
+                          disabled={loading}
+                          className="shrink-0 rounded-lg bg-red-500/10 px-3 py-1.5 text-sm font-medium text-red-400 transition hover:bg-red-500/20 disabled:opacity-50"
+                          title="Eliminar galpón"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

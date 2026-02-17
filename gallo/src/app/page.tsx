@@ -7,6 +7,8 @@ import type { Rooster } from "@/lib/types";
 
 type DrawPair = {
   id: number;
+  gallo_a_id: number;
+  gallo_b_id: number;
   gallo_a_nombre: string;
   gallo_b_nombre: string;
   galpon_a: string;
@@ -16,6 +18,8 @@ type DrawPair = {
   peso_a_libras: number;
   peso_b_libras: number;
   diferencia_gramos: number;
+  ganador_id?: number | null;
+  duracion_segundos?: number | null;
 };
 
 type FormState = {
@@ -41,7 +45,18 @@ type Galpon = {
   nombre: string;
 };
 
-type SectionKey = "gallos" | "galpones" | "sorteo";
+type SectionKey = "gallos" | "galpones" | "sorteo" | "reporte";
+
+type ReportRow = {
+  posicion: number;
+  disputa_id: number;
+  ganador: string;
+  galpon_ganador: string;
+  gallo_a: string;
+  gallo_b: string;
+  duracion_segundos: number;
+  duracion_minutos: number;
+};
 
 export default function Home() {
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
@@ -62,6 +77,8 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string>("");
   const [error, setError] = useState<string>("");
+  const [reportRows, setReportRows] = useState<ReportRow[]>([]);
+  const [resultByMatch, setResultByMatch] = useState<Record<number, { ganadorId: string; segundos: string }>>({});
 
   async function loadRoosters() {
     setLoading(true);
@@ -84,7 +101,21 @@ export default function Home() {
     loadRoosters();
     loadGalpones();
     loadMatchesCount();
+    loadReport();
   }, []);
+
+  async function loadReport() {
+    try {
+      const response = await fetch("/api/reporte");
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Error cargando reporte");
+      }
+      setReportRows(payload.data ?? []);
+    } catch {
+      setReportRows([]);
+    }
+  }
 
   async function loadGalpones() {
     try {
@@ -173,6 +204,17 @@ export default function Home() {
       }
 
       setPairs(payload.data ?? []);
+      setResultByMatch(
+        Object.fromEntries(
+          (payload.data ?? []).map((pair: DrawPair) => [
+            pair.id,
+            {
+              ganadorId: pair.ganador_id ? String(pair.ganador_id) : "",
+              segundos: pair.duracion_segundos != null ? String(pair.duracion_segundos) : "",
+            },
+          ]),
+        ),
+      );
       setDrawSummary(payload.resumen ?? null);
       if ((payload.sobrantes ?? []).length > 0) {
         setMessage(
@@ -184,6 +226,7 @@ export default function Home() {
         );
       }
       setDbMatchesCount((payload.data ?? []).length);
+      await loadReport();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado");
     } finally {
@@ -208,10 +251,12 @@ export default function Home() {
       }
 
       setPairs([]);
+      setResultByMatch({});
       setDrawSummary(null);
       setMessage(`Gallo ${id} eliminado correctamente`);
       await loadRoosters();
       await loadMatchesCount();
+      await loadReport();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado");
     } finally {
@@ -236,9 +281,11 @@ export default function Home() {
       }
 
       setPairs([]);
+      setResultByMatch({});
       setDrawSummary(null);
       setDbMatchesCount(0);
       setMessage("Emparejamientos limpiados correctamente");
+      await loadReport();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado");
     } finally {
@@ -323,7 +370,7 @@ export default function Home() {
 
     autoTable(doc, {
       startY: 20,
-      head: [["#", "Gallo A", "Galpón A", "Propietario A", "Peso A", "Gallo B", "Galpón B", "Propietario B", "Peso B", "Dif (g)", "Tiempo"]],
+      head: [["#", "Gallo A", "Galpón A", "Propietario A", "Peso A", "Gallo B", "Galpón B", "Propietario B", "Peso B", "Dif (g)", "Ganador", "Tiempo (s)", "Tiempo (min)"]],
       body: pairs.map((pair, index) => [
         String(index + 1),
         pair.gallo_a_nombre,
@@ -335,7 +382,9 @@ export default function Home() {
         pair.propietario_b,
         pair.peso_b_libras.toFixed(2),
         String(pair.diferencia_gramos),
-        "",
+        pair.ganador_id === pair.gallo_a_id ? pair.gallo_a_nombre : pair.ganador_id === pair.gallo_b_id ? pair.gallo_b_nombre : "",
+        pair.duracion_segundos != null ? String(pair.duracion_segundos) : "",
+        pair.duracion_segundos != null ? (pair.duracion_segundos / 60).toFixed(2) : "",
       ]),
       styles: { fontSize: 8 },
     });
@@ -358,6 +407,82 @@ export default function Home() {
     }));
     return `/print?pairs=${encodeURIComponent(JSON.stringify(printable))}`;
   }, [pairs]);
+
+  async function onSaveResult(pair: DrawPair) {
+    const current = resultByMatch[pair.id];
+    const ganadorId = Number(current?.ganadorId ?? "");
+    const segundos = Number(current?.segundos ?? "");
+
+    if (!ganadorId || Number.isNaN(segundos) || segundos < 0) {
+      setError("Selecciona ganador y tiempo válido en segundos");
+      return;
+    }
+
+    setError("");
+    setMessage("");
+    setLoading(true);
+    try {
+      const response = await fetch("/api/matches", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: pair.id,
+          ganador_id: ganadorId,
+          duracion_segundos: segundos,
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error ?? "No se pudo guardar el resultado");
+      }
+
+      setPairs((prev) =>
+        prev.map((item) =>
+          item.id === pair.id
+            ? {
+                ...item,
+                ganador_id: ganadorId,
+                duracion_segundos: segundos,
+              }
+            : item,
+        ),
+      );
+
+      setMessage(`Resultado guardado para pelea #${pairs.findIndex((p) => p.id === pair.id) + 1}`);
+      await loadReport();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error inesperado");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function onDownloadReportPdf() {
+    if (reportRows.length === 0) {
+      setError("No hay datos en el reporte para exportar");
+      return;
+    }
+
+    const doc = new jsPDF({ orientation: "landscape" });
+    doc.setFontSize(16);
+    doc.text("Ranking del mejor tiempo del día", 14, 14);
+
+    autoTable(doc, {
+      startY: 20,
+      head: [["Pos.", "Ganador", "Galpón ganador", "Disputa", "Tiempo (s)", "Tiempo (min)"]],
+      body: reportRows.map((row) => [
+        String(row.posicion),
+        row.ganador,
+        row.galpon_ganador,
+        `${row.gallo_a} vs ${row.gallo_b}`,
+        String(row.duracion_segundos),
+        row.duracion_minutos.toFixed(2),
+      ]),
+      styles: { fontSize: 9 },
+    });
+
+    doc.save("ranking-mejor-tiempo.pdf");
+  }
 
   const galponesConGallos = useMemo(() => {
     const grouped = new Map<string, string[]>();
@@ -423,6 +548,17 @@ export default function Home() {
             }`}
           >
             Sorteo
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveSection("reporte")}
+            className={`w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium transition ${
+              activeSection === "reporte"
+                ? "bg-amber-500/20 text-amber-200 ring-1 ring-amber-400/40"
+                : "border border-slate-700 text-slate-300 hover:border-slate-500 hover:bg-slate-900"
+            }`}
+          >
+            Reporte
           </button>
         </nav>
 
@@ -723,8 +859,123 @@ export default function Home() {
                           <p className="text-sm text-slate-300">Peso: {pair.peso_b_libras.toFixed(2)} lb</p>
                         </div>
                       </div>
+
+                      <div className="mt-3 grid grid-cols-1 gap-3 rounded-lg border border-slate-700 p-3 md:grid-cols-4">
+                        <div className="md:col-span-2">
+                          <label className="mb-1 block text-xs font-semibold text-slate-300">Ganador</label>
+                          <select
+                            value={resultByMatch[pair.id]?.ganadorId ?? ""}
+                            onChange={(e) =>
+                              setResultByMatch((prev) => ({
+                                ...prev,
+                                [pair.id]: {
+                                  ganadorId: e.target.value,
+                                  segundos: prev[pair.id]?.segundos ?? "",
+                                },
+                              }))
+                            }
+                            className="w-full rounded-md border border-slate-600 bg-slate-950/70 px-3 py-2 text-sm"
+                          >
+                            <option value="">Seleccione ganador</option>
+                            <option value={pair.gallo_a_id}>{pair.gallo_a_nombre}</option>
+                            <option value={pair.gallo_b_id}>{pair.gallo_b_nombre}</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-slate-300">Tiempo (segundos)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={resultByMatch[pair.id]?.segundos ?? ""}
+                            onChange={(e) =>
+                              setResultByMatch((prev) => ({
+                                ...prev,
+                                [pair.id]: {
+                                  ganadorId: prev[pair.id]?.ganadorId ?? "",
+                                  segundos: e.target.value,
+                                },
+                              }))
+                            }
+                            className="w-full rounded-md border border-slate-600 bg-slate-950/70 px-3 py-2 text-sm"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-slate-300">Tiempo (min)</label>
+                          <input
+                            type="text"
+                            value={
+                              resultByMatch[pair.id]?.segundos && !Number.isNaN(Number(resultByMatch[pair.id].segundos))
+                                ? (Number(resultByMatch[pair.id].segundos) / 60).toFixed(2)
+                                : ""
+                            }
+                            readOnly
+                            className="w-full rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-300"
+                          />
+                        </div>
+
+                        <div className="md:col-span-4">
+                          <button
+                            type="button"
+                            onClick={() => onSaveResult(pair)}
+                            disabled={loading}
+                            className="rounded-md bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-400 disabled:opacity-60"
+                          >
+                            Guardar resultado de la disputa
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {activeSection === "reporte" && (
+          <section className="space-y-6">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-2xl shadow-black/20">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h2 className="text-xl font-semibold text-amber-200">Reporte - Ranking mejor tiempo del día</h2>
+                <button
+                  type="button"
+                  onClick={onDownloadReportPdf}
+                  className={`rounded-lg border border-slate-600 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:bg-slate-800 ${reportRows.length === 0 ? "pointer-events-none opacity-50" : ""}`}
+                >
+                  Exportar ranking PDF
+                </button>
+              </div>
+
+              {reportRows.length === 0 ? (
+                <div className="rounded-xl border border-slate-700 p-4 text-center text-slate-400">Aún no hay disputas con resultado y tiempo guardado.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-sm text-slate-100">
+                    <thead>
+                      <tr>
+                        <th className="border border-slate-700 bg-slate-800 p-2">Posición</th>
+                        <th className="border border-slate-700 bg-slate-800 p-2">Ganador</th>
+                        <th className="border border-slate-700 bg-slate-800 p-2">Galpón ganador</th>
+                        <th className="border border-slate-700 bg-slate-800 p-2">Disputa</th>
+                        <th className="border border-slate-700 bg-slate-800 p-2">Tiempo (seg)</th>
+                        <th className="border border-slate-700 bg-slate-800 p-2">Tiempo (min)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reportRows.map((row) => (
+                        <tr key={row.disputa_id} className="hover:bg-slate-800/70">
+                          <td className="border border-slate-700 p-2 text-center font-semibold text-amber-200">{row.posicion}</td>
+                          <td className="border border-slate-700 p-2">{row.ganador}</td>
+                          <td className="border border-slate-700 p-2">{row.galpon_ganador}</td>
+                          <td className="border border-slate-700 p-2">{row.gallo_a} vs {row.gallo_b}</td>
+                          <td className="border border-slate-700 p-2 text-right">{row.duracion_segundos}</td>
+                          <td className="border border-slate-700 p-2 text-right">{row.duracion_minutos.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>

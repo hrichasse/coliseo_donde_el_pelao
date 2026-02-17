@@ -43,7 +43,7 @@ export async function POST() {
     .from("emparejamientos")
     .insert(insertPayload)
     .select(
-      "id, gallo_a_id, gallo_b_id, diferencia_gramos, created_at, gallo_a:gallo_a_id(id, nombre_gallo, galpon, propietario, peso_libras), gallo_b:gallo_b_id(id, nombre_gallo, galpon, propietario, peso_libras)",
+      "id, gallo_a_id, gallo_b_id, ganador_id, duracion_segundos, diferencia_gramos, created_at, gallo_a:gallo_a_id(id, nombre_gallo, galpon, propietario, peso_libras), gallo_b:gallo_b_id(id, nombre_gallo, galpon, propietario, peso_libras)",
     )
     .order("id", { ascending: true });
 
@@ -51,21 +51,28 @@ export async function POST() {
     return NextResponse.json({ error: insertError.message }, { status: 500 });
   }
 
-  const normalized = (inserted ?? []).map((row: any) => ({
-    id: row.id,
-    gallo_a_id: row.gallo_a_id,
-    gallo_b_id: row.gallo_b_id,
-    gallo_a_nombre: row.gallo_a?.nombre_gallo ?? "",
-    gallo_b_nombre: row.gallo_b?.nombre_gallo ?? "",
-    galpon_a: row.gallo_a?.galpon ?? "",
-    galpon_b: row.gallo_b?.galpon ?? "",
-    propietario_a: row.gallo_a?.propietario ?? "",
-    propietario_b: row.gallo_b?.propietario ?? "",
-    peso_a_libras: row.gallo_a?.peso_libras ?? 0,
-    peso_b_libras: row.gallo_b?.peso_libras ?? 0,
-    diferencia_gramos: row.diferencia_gramos,
-    created_at: row.created_at,
-  }));
+  const normalized = (inserted ?? []).map((row) => {
+    const galloA = Array.isArray(row.gallo_a) ? row.gallo_a[0] : row.gallo_a;
+    const galloB = Array.isArray(row.gallo_b) ? row.gallo_b[0] : row.gallo_b;
+
+    return {
+      id: row.id,
+      gallo_a_id: row.gallo_a_id,
+      gallo_b_id: row.gallo_b_id,
+      ganador_id: row.ganador_id,
+      duracion_segundos: row.duracion_segundos,
+      gallo_a_nombre: galloA?.nombre_gallo ?? "",
+      gallo_b_nombre: galloB?.nombre_gallo ?? "",
+      galpon_a: galloA?.galpon ?? "",
+      galpon_b: galloB?.galpon ?? "",
+      propietario_a: galloA?.propietario ?? "",
+      propietario_b: galloB?.propietario ?? "",
+      peso_a_libras: galloA?.peso_libras ?? 0,
+      peso_b_libras: galloB?.peso_libras ?? 0,
+      diferencia_gramos: row.diferencia_gramos,
+      created_at: row.created_at,
+    };
+  });
 
   return NextResponse.json({
     data: normalized,

@@ -27,6 +27,8 @@ create table public.emparejamientos (
   id bigint generated always as identity primary key,
   gallo_a_id bigint not null references public.gallos(id) on delete cascade,
   gallo_b_id bigint not null references public.gallos(id) on delete cascade,
+  ganador_id bigint null references public.gallos(id),
+  duracion_segundos integer null check (duracion_segundos >= 0),
   diferencia_gramos integer not null,
   created_at timestamptz not null default now(),
   constraint gallos_distintos check (gallo_a_id <> gallo_b_id)
@@ -90,3 +92,10 @@ on public.emparejamientos
 for delete
 to anon
 using (true);
+
+create policy emparejamientos_update_anon
+on public.emparejamientos
+for update
+to anon
+using (true)
+with check (true);

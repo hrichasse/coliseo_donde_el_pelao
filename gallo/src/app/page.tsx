@@ -1,9 +1,48 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { Rooster } from "@/lib/types";
+import { useAuth } from "@/hooks/useAuth";
+
+// Verificar autenticación en el cliente
+function useProtected() {
+  const router = useRouter();
+  const [authorized, setAuthorized] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Verificar cookie enviando una petición simple
+    const checkAuth = async () => {
+      try {
+        const response = await fetch("/api/roosters", {
+          credentials: "include",
+        });
+
+        if (response.status === 401) {
+          // No autorizado, redirigir al login
+          router.push("/login");
+          return;
+        }
+
+        setAuthorized(true);
+      } catch (error) {
+        console.error("Auth check error:", error);
+        router.push("/login");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, [router]);
+
+  return { authorized, loading };
+}
 
 type DrawPair = {
   id: number;
@@ -60,6 +99,8 @@ type ReportRow = {
 };
 
 export default function Home() {
+  const { logout } = useAuth();
+  const { authorized, loading: authLoading } = useProtected();
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [roosters, setRoosters] = useState<Rooster[]>([]);
   const [galpones, setGalpones] = useState<Galpon[]>([]);
@@ -617,6 +658,20 @@ export default function Home() {
       .sort((a, b) => a.galpon.localeCompare(b.galpon));
   }, [roosters]);
 
+  // Mostrar pantalla de carga mientras se verifica autenticación
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+        <div className="text-white text-lg">Verificando acceso...</div>
+      </div>
+    );
+  }
+
+  // Si no está autorizado, no renderizar nada (el hook redirige)
+  if (!authorized) {
+    return null;
+  }
+
   return (
     <div className="relative min-h-screen bg-slate-950 text-slate-100">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -711,13 +766,21 @@ export default function Home() {
               Empareja por peso y no permite cruces entre gallos del mismo galpón.
             </p>
           </div>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img 
-            src="/images/logopng.png" 
-            alt="Coliseo donde el Pelao" 
-            style={{width: '500px', height: '120px', borderRadius: '0.5rem'}}
-            className="shadow-2xl shadow-black/40 object-contain shrink-0"
-          />
+          <div className="flex flex-col gap-4 items-end">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img 
+              src="/images/logopng.png" 
+              alt="Coliseo donde el Pelao" 
+              style={{width: '500px', height: '120px', borderRadius: '0.5rem'}}
+              className="shadow-2xl shadow-black/40 object-contain shrink-0"
+            />
+            <button
+              onClick={logout}
+              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500 transition"
+            >
+              Cerrar Sesión
+            </button>
+          </div>
         </div>
 
         {activeSection === "gallos" && (

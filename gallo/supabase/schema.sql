@@ -5,6 +5,14 @@
 drop table if exists public.emparejamientos;
 drop table if exists public.gallos;
 drop table if exists public.galpones;
+drop table if exists public.usuarios;
+
+create table public.usuarios (
+  id bigint generated always as identity primary key,
+  email text not null unique,
+  password text not null,
+  created_at timestamptz not null default now()
+);
 
 create table public.galpones (
   id bigint generated always as identity primary key,
@@ -37,6 +45,13 @@ create table public.emparejamientos (
 alter table public.gallos enable row level security;
 alter table public.galpones enable row level security;
 alter table public.emparejamientos enable row level security;
+alter table public.usuarios enable row level security;
+
+create policy usuarios_select_anon
+on public.usuarios
+for select
+to anon
+using (true);
 
 create policy galpones_select_anon
 on public.galpones

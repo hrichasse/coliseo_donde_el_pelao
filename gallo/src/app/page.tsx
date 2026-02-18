@@ -441,7 +441,7 @@ export default function Home() {
 
     autoTable(doc, {
       startY: 20,
-      head: [["#", "Gallo A", "Galpón A", "Propietario A", "Peso A", "Gallo B", "Galpón B", "Propietario B", "Peso B", "Dif (g)", "Ganador", "Tiempo (s)", "Tiempo (min)"]],
+      head: [["#", "Gallo A", "Galpón A", "Propietario A", "Peso A", "Gallo B", "Galpón B", "Propietario B", "Peso B", "Dif (g)", "Tiempo (manual)"]],
       body: pairs.map((pair, index) => [
         String(index + 1),
         pair.gallo_a_nombre,
@@ -453,9 +453,7 @@ export default function Home() {
         pair.propietario_b,
         pair.peso_b_libras.toFixed(2),
         String(pair.diferencia_gramos),
-        pair.ganador_id === pair.gallo_a_id ? pair.gallo_a_nombre : pair.ganador_id === pair.gallo_b_id ? pair.gallo_b_nombre : "",
-        pair.duracion_segundos != null ? String(pair.duracion_segundos) : "",
-        pair.duracion_segundos != null ? (pair.duracion_segundos / 60).toFixed(2) : "",
+        "",
       ]),
       styles: { fontSize: 8 },
     });
@@ -539,6 +537,22 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function formatTiempoAutomatico(soloNumeros: string): string {
+    if (!soloNumeros) return "";
+    
+    // Remover caracteres no numéricos
+    const numeros = soloNumeros.replace(/\D/g, "");
+    
+    if (numeros.length === 0) return "";
+    
+    // Convertir a número para eliminar ceros al inicio
+    const totalSegundos = Number(numeros);
+    const minutos = Math.floor(totalSegundos / 60);
+    const segundos = totalSegundos % 60;
+    
+    return `${minutos}:${segundos.toString().padStart(2, "0")}`;
   }
 
   function convertirMMSSASegundos(mmss: string): number {
@@ -1110,17 +1124,18 @@ export default function Home() {
                           <label className="mb-1 block text-xs font-semibold text-slate-300">Tiempo (MM:SS)</label>
                           <input
                             type="text"
-                            placeholder="0:00"
+                            placeholder="1:20"
+                            maxLength={5}
                             value={resultByMatch[pair.id]?.segundos ?? ""}
                             onChange={(e) => {
-                              const value = e.target.value;
-                              // Permitir solo números y dos puntos
-                              if (value === "" || /^\d{0,2}:\d{0,2}$/.test(value) || /^\d{0,2}$/.test(value)) {
+                              const rawValue = e.target.value;
+                              // Permitir números y dos puntos
+                              if (rawValue === "" || /^[\d:]*$/.test(rawValue)) {
                                 setResultByMatch((prev) => ({
                                   ...prev,
                                   [pair.id]: {
                                     ganadorId: prev[pair.id]?.ganadorId ?? "",
-                                    segundos: value,
+                                    segundos: rawValue,
                                   },
                                 }));
                               }

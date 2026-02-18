@@ -21,25 +21,29 @@ export default function LoginPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
-        credentials: "include", // Incluir cookies
+        credentials: "include",
       });
 
-      const data = await res.json();
-
       if (!res.ok) {
-        setError(data.error || "Error al iniciar sesión");
+        const data = await res.json();
+        setError(data.error || `Error: ${res.status}`);
         setLoading(false);
         return;
       }
 
-      // Login exitoso, redirigir a la página principal
-      // La cookie se guardó automáticamente en el cliente
+      const data = await res.json();
+      console.log("Login exitoso:", data);
+
+      // Guardar en sessionStorage para evitar problemas con cookies
+      sessionStorage.setItem("auth_token", data.token);
+      
+      // Redirigir a la página principal
       setTimeout(() => {
         window.location.href = "/";
-      }, 500);
+      }, 300);
     } catch (err) {
-      setError("Error al conectar con el servidor");
-      console.error(err);
+      setError("Error al conectar con el servidor: " + String(err));
+      console.error("Login error:", err);
       setLoading(false);
     }
   }

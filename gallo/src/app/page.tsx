@@ -16,29 +16,18 @@ function useProtected() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Verificar cookie enviando una petición simple
-    const checkAuth = async () => {
-      try {
-        const response = await fetch("/api/roosters", {
-          credentials: "include",
-        });
+    // Verificar token en sessionStorage
+    const token = sessionStorage.getItem("auth_token");
 
-        if (response.status === 401) {
-          // No autorizado, redirigir al login
-          router.push("/login");
-          return;
-        }
+    if (!token) {
+      console.log("No token found, redirecting to login");
+      router.push("/login");
+      return;
+    }
 
-        setAuthorized(true);
-      } catch (error) {
-        console.error("Auth check error:", error);
-        router.push("/login");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAuth();
+    // Token existe, está autorizado
+    setAuthorized(true);
+    setLoading(false);
   }, [router]);
 
   return { authorized, loading };

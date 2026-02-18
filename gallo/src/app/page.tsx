@@ -51,6 +51,7 @@ type ReportRow = {
   posicion: number;
   disputa_id: number;
   ganador: string;
+  propietario_ganador: string;
   galpon_ganador: string;
   gallo_a: string;
   gallo_b: string;
@@ -63,11 +64,14 @@ export default function Home() {
   const [roosters, setRoosters] = useState<Rooster[]>([]);
   const [galpones, setGalpones] = useState<Galpon[]>([]);
   const [pairs, setPairs] = useState<DrawPair[]>([]);
+  const [sobrantes, setSobrantes] = useState<Rooster[]>([]);
   const [dbMatchesCount, setDbMatchesCount] = useState(0);
   const [activeSection, setActiveSection] = useState<SectionKey>("gallos");
   const [galponNuevo, setGalponNuevo] = useState("");
   const [assignGalloId, setAssignGalloId] = useState<string>("");
   const [assignGalpon, setAssignGalpon] = useState<string>("");
+  const [showCreateGalpon, setShowCreateGalpon] = useState(false);
+  const [nuevoGalponNombre, setNuevoGalponNombre] = useState("");
   const [drawSummary, setDrawSummary] = useState<{
     total_inscritos: number;
     total_1v1: number;
@@ -177,6 +181,8 @@ export default function Home() {
 
       setForm(INITIAL_FORM);
       setMessage("Gallo registrado correctamente");
+      setShowCreateGalpon(false);
+      setNuevoGalponNombre("");
       await loadRoosters();
       setForm((prev) => ({ ...prev, galpon: prev.galpon || assignGalpon || galpones[0]?.nombre || "" }));
     } catch (e) {
@@ -204,6 +210,7 @@ export default function Home() {
       }
 
       setPairs(payload.data ?? []);
+      setSobrantes(payload.sobrantes ?? []);
       setResultByMatch(
         Object.fromEntries(
           (payload.data ?? []).map((pair: DrawPair) => [
@@ -351,6 +358,43 @@ export default function Home() {
     }
   }
 
+  async function onCreateGalponFromRooster() {
+    if (!nuevoGalponNombre.trim()) {
+      setError("El nombre del galpón es requerido");
+      return;
+    }
+
+    setError("");
+    setMessage("");
+    setLoading(true);
+    try {
+      const response = await fetch("/api/galpones", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre: nuevoGalponNombre.trim() }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error ?? "No se pudo crear el galpón");
+      }
+
+      // Auto-seleccionar el nuevo galpón en el formulario
+      setForm((prev) => ({ ...prev, galpon: nuevoGalponNombre.trim() }));
+      
+      // Limpiar y cerrar
+      setNuevoGalponNombre("");
+      setShowCreateGalpon(false);
+      setMessage("Galpón creado y seleccionado correctamente");
+      
+      // Recargar galpones
+      await loadGalpones();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error inesperado");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function onAssignGalloGalpon(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const galloId = Number(assignGalloId);
@@ -437,10 +481,21 @@ export default function Home() {
   async function onSaveResult(pair: DrawPair) {
     const current = resultByMatch[pair.id];
     const ganadorId = Number(current?.ganadorId ?? "");
-    const segundos = Number(current?.segundos ?? "");
+    const tiempoMMSS = current?.segundos ?? "";
 
-    if (!ganadorId || Number.isNaN(segundos) || segundos < 0) {
-      setError("Selecciona ganador y tiempo válido en segundos");
+    if (!ganadorId) {
+      setError("Debes seleccionar un ganador");
+      return;
+    }
+
+    if (!tiempoMMSS || !tiempoMMSS.includes(":")) {
+      setError("Debes ingresar el tiempo en formato MM:SS (ej: 2:20)");
+      return;
+    }
+
+    const totalSegundos = convertirMMSSASegundos(tiempoMMSS);
+    if (totalSegundos <= 0) {
+      setError("El tiempo debe ser mayor a 0 segundos");
       return;
     }
 
@@ -454,7 +509,7 @@ export default function Home() {
         body: JSON.stringify({
           id: pair.id,
           ganador_id: ganadorId,
-          duracion_segundos: segundos,
+          duracion_segundos: totalSegundos,
         }),
       });
       const payload = await response.json();
@@ -462,25 +517,42 @@ export default function Home() {
         throw new Error(payload.error ?? "No se pudo guardar el resultado");
       }
 
+      const ganadorNombre = ganadorId === pair.gallo_a_id ? pair.gallo_a_nombre : pair.gallo_b_nombre;
+
       setPairs((prev) =>
         prev.map((item) =>
           item.id === pair.id
             ? {
                 ...item,
                 ganador_id: ganadorId,
-                duracion_segundos: segundos,
+                duracion_segundos: totalSegundos,
               }
             : item,
         ),
       );
 
-      setMessage(`Resultado guardado para pelea #${pairs.findIndex((p) => p.id === pair.id) + 1}`);
+      setMessage(`✓ Pelea guardada: ${ganadorNombre} ganó en ${tiempoMMSS} (${totalSegundos}s)`);
       await loadReport();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado");
     } finally {
       setLoading(false);
     }
+  }
+
+  function convertirMMSSASegundos(mmss: string): number {
+    if (!mmss || !mmss.includes(":")) return 0;
+    const [minStr, secStr] = mmss.split(":");
+    const minutos = Number(minStr) || 0;
+    const segundos = Number(secStr) || 0;
+    return minutos * 60 + segundos;
+  }
+
+  function convertirSegundosAMMSS(totalSegundos: number): string {
+    if (!totalSegundos || totalSegundos < 0) return "";
+    const minutos = Math.floor(totalSegundos / 60);
+    const segundos = totalSegundos % 60;
+    return `${minutos}:${segundos.toString().padStart(2, "0")}`;
   }
 
   function onDownloadReportPdf() {
@@ -495,10 +567,11 @@ export default function Home() {
 
     autoTable(doc, {
       startY: 20,
-      head: [["Pos.", "Ganador", "Galpón ganador", "Disputa", "Tiempo (s)", "Tiempo (min)"]],
+      head: [["Pos.", "Ganador", "Propietario", "Galpón ganador", "Disputa", "Tiempo (s)", "Tiempo (min)"]],
       body: reportRows.map((row) => [
         String(row.posicion),
         row.ganador,
+        row.propietario_ganador,
         row.galpon_ganador,
         `${row.gallo_a} vs ${row.gallo_b}`,
         String(row.duracion_segundos),
@@ -616,10 +689,21 @@ export default function Home() {
       </aside>
 
       <main className="relative z-10 ml-72 min-h-screen p-6 md:p-8">
-        <h1 className="mb-2 text-3xl font-bold tracking-tight md:text-4xl">Cotejas Coliseo donde el Pelao</h1>
-        <p className="mb-6 text-sm text-slate-300 md:text-base">
-          Empareja por peso y no permite cruces entre gallos del mismo galpón.
-        </p>
+        <div className="flex items-start justify-between gap-2 mb-4">
+          <div className="flex-1">
+            <h1 className="mb-2 text-3xl font-bold tracking-tight md:text-4xl">Cotejas Coliseo donde el Pelao</h1>
+            <p className="text-sm text-slate-300 md:text-base">
+              Empareja por peso y no permite cruces entre gallos del mismo galpón.
+            </p>
+          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img 
+            src="/images/logopng.png" 
+            alt="Coliseo donde el Pelao" 
+            style={{width: '500px', height: '120px', borderRadius: '0.5rem'}}
+            className="shadow-2xl shadow-black/40 object-contain shrink-0"
+          />
+        </div>
 
         {activeSection === "gallos" && (
           <section className="space-y-6">
@@ -633,19 +717,49 @@ export default function Home() {
                   className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-slate-100 outline-none ring-cyan-400/50 placeholder:text-slate-500 focus:ring"
                   required
                 />
-                <select
-                  value={form.galpon}
-                  onChange={(e) => setForm((prev) => ({ ...prev, galpon: e.target.value }))}
-                  className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-slate-100 outline-none ring-cyan-400/50 focus:ring"
-                  required
-                >
-                  <option value="">Seleccione galpón</option>
-                  {galpones.map((galpon) => (
-                    <option key={galpon.id} value={galpon.nombre}>
-                      {galpon.nombre}
-                    </option>
-                  ))}
-                </select>
+                <div className="col-span-full">
+                  <div className="flex gap-2 mb-3">
+                    <select
+                      value={form.galpon}
+                      onChange={(e) => setForm((prev) => ({ ...prev, galpon: e.target.value }))}
+                      className="flex-1 rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-slate-100 outline-none ring-cyan-400/50 focus:ring"
+                      required
+                    >
+                      <option value="">Seleccione galpón</option>
+                      {galpones.map((galpon) => (
+                        <option key={galpon.id} value={galpon.nombre}>
+                          {galpon.nombre}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateGalpon(!showCreateGalpon)}
+                      className="rounded-lg bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-slate-700 border border-slate-700"
+                    >
+                      {showCreateGalpon ? "Cancelar" : "Crear nuevo"}
+                    </button>
+                  </div>
+                  
+                  {showCreateGalpon && (
+                    <div className="flex gap-2 bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                      <input
+                        value={nuevoGalponNombre}
+                        onChange={(e) => setNuevoGalponNombre(e.target.value)}
+                        placeholder="Nombre del nuevo galpón"
+                        className="flex-1 rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-slate-100 outline-none ring-cyan-400/50 placeholder:text-slate-500 focus:ring text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={onCreateGalponFromRooster}
+                        disabled={loading || !nuevoGalponNombre.trim()}
+                        className="rounded-lg bg-cyan-500 px-4 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60"
+                      >
+                        Guardar
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <input
                   value={form.propietario}
                   onChange={(e) => setForm((prev) => ({ ...prev, propietario: e.target.value }))}
@@ -992,35 +1106,39 @@ export default function Home() {
                         </div>
 
                         <div>
-                          <label className="mb-1 block text-xs font-semibold text-slate-300">Tiempo (segundos)</label>
+                          <label className="mb-1 block text-xs font-semibold text-slate-300">Tiempo (MM:SS)</label>
                           <input
-                            type="number"
-                            min="0"
+                            type="text"
+                            placeholder="0:00"
                             value={resultByMatch[pair.id]?.segundos ?? ""}
-                            onChange={(e) =>
-                              setResultByMatch((prev) => ({
-                                ...prev,
-                                [pair.id]: {
-                                  ganadorId: prev[pair.id]?.ganadorId ?? "",
-                                  segundos: e.target.value,
-                                },
-                              }))
-                            }
-                            className="w-full rounded-md border border-slate-600 bg-slate-950/70 px-3 py-2 text-sm"
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              // Permitir solo números y dos puntos
+                              if (value === "" || /^\d{0,2}:\d{0,2}$/.test(value) || /^\d{0,2}$/.test(value)) {
+                                setResultByMatch((prev) => ({
+                                  ...prev,
+                                  [pair.id]: {
+                                    ganadorId: prev[pair.id]?.ganadorId ?? "",
+                                    segundos: value,
+                                  },
+                                }));
+                              }
+                            }}
+                            className="w-full rounded-md border border-slate-600 bg-slate-950/70 px-3 py-2 text-sm text-center text-lg font-mono"
                           />
                         </div>
 
                         <div>
-                          <label className="mb-1 block text-xs font-semibold text-slate-300">Tiempo (min)</label>
+                          <label className="mb-1 block text-xs font-semibold text-slate-300">Total (segundos)</label>
                           <input
                             type="text"
                             value={
-                              resultByMatch[pair.id]?.segundos && !Number.isNaN(Number(resultByMatch[pair.id].segundos))
-                                ? (Number(resultByMatch[pair.id].segundos) / 60).toFixed(2)
+                              resultByMatch[pair.id]?.segundos
+                                ? `${convertirMMSSASegundos(resultByMatch[pair.id].segundos)} seg`
                                 : ""
                             }
                             readOnly
-                            className="w-full rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-300"
+                            className="w-full rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-300 text-center"
                           />
                         </div>
 
@@ -1028,15 +1146,32 @@ export default function Home() {
                           <button
                             type="button"
                             onClick={() => onSaveResult(pair)}
-                            disabled={loading}
-                            className="rounded-md bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-400 disabled:opacity-60"
+                            disabled={loading || !resultByMatch[pair.id]?.ganadorId || !resultByMatch[pair.id]?.segundos || !resultByMatch[pair.id].segundos.includes(":") || convertirMMSSASegundos(resultByMatch[pair.id]?.segundos ?? "") <= 0}
+                            className="w-full rounded-md bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed transition"
                           >
-                            Guardar resultado de la disputa
+                            {loading ? "Guardando..." : "Guardar resultado de la disputa"}
                           </button>
                         </div>
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {sobrantes.length > 0 && (
+                <div className="mt-6 rounded-xl border border-amber-400/30 bg-amber-500/10 p-4">
+                  <h3 className="mb-3 font-semibold text-amber-200">Gallos sin pareja ({sobrantes.length})</h3>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    {sobrantes.map((gallo) => (
+                      <div key={gallo.id} className="rounded-lg border border-amber-400/30 bg-slate-800/40 p-3">
+                        <p className="mb-1 text-sm font-semibold text-amber-300">{gallo.nombre_gallo}</p>
+                        <p className="text-xs text-slate-400">Galpón: {gallo.galpon}</p>
+                        <p className="text-xs text-slate-400">Propietario: {gallo.propietario}</p>
+                        <p className="text-xs text-slate-400">Peso: {gallo.peso_libras.toFixed(2)} lb</p>
+                        <p className="text-xs text-slate-400">Color: {gallo.color_gallo} / Pata: {gallo.color_pata}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -1066,6 +1201,7 @@ export default function Home() {
                       <tr>
                         <th className="border border-slate-700 bg-slate-800 p-2">Posición</th>
                         <th className="border border-slate-700 bg-slate-800 p-2">Ganador</th>
+                        <th className="border border-slate-700 bg-slate-800 p-2">Propietario</th>
                         <th className="border border-slate-700 bg-slate-800 p-2">Galpón ganador</th>
                         <th className="border border-slate-700 bg-slate-800 p-2">Disputa</th>
                         <th className="border border-slate-700 bg-slate-800 p-2">Tiempo (seg)</th>
@@ -1077,6 +1213,7 @@ export default function Home() {
                         <tr key={row.disputa_id} className="hover:bg-slate-800/70">
                           <td className="border border-slate-700 p-2 text-center font-semibold text-amber-200">{row.posicion}</td>
                           <td className="border border-slate-700 p-2">{row.ganador}</td>
+                          <td className="border border-slate-700 p-2">{row.propietario_ganador}</td>
                           <td className="border border-slate-700 p-2">{row.galpon_ganador}</td>
                           <td className="border border-slate-700 p-2">{row.gallo_a} vs {row.gallo_b}</td>
                           <td className="border border-slate-700 p-2 text-right">{row.duracion_segundos}</td>
@@ -1085,6 +1222,27 @@ export default function Home() {
                       ))}
                     </tbody>
                   </table>
+
+                  {reportRows.length > 0 && (
+                    <div className="mt-6 rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-5">
+                      <h3 className="mb-4 text-lg font-semibold text-emerald-200">🏆 Ganador del día - Mejor tiempo</h3>
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div className="rounded-lg border border-emerald-400/50 bg-slate-900/50 p-4">
+                          <p className="mb-1 text-xs font-semibold text-emerald-300">GALLO GANADOR</p>
+                          <p className="mb-3 text-xl font-bold text-emerald-100">{reportRows[0].ganador}</p>
+                          <div className="space-y-1 text-sm text-slate-300">
+                            <p><span className="font-semibold text-slate-200">Propietario:</span> {reportRows[0].propietario_ganador}</p>
+                            <p><span className="font-semibold text-slate-200">Galpón:</span> {reportRows[0].galpon_ganador}</p>
+                          </div>
+                        </div>
+                        <div className="rounded-lg border border-emerald-400/50 bg-slate-900/50 p-4">
+                          <p className="mb-1 text-xs font-semibold text-emerald-300">TIEMPO RÉCORD</p>
+                          <p className="mb-3 text-2xl font-bold text-emerald-100">{reportRows[0].duracion_segundos} segundos</p>
+                          <p className="text-sm text-slate-400">({reportRows[0].duracion_minutos.toFixed(2)} minutos)</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

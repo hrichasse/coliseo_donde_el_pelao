@@ -7,7 +7,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from("emparejamientos")
     .select(
-      "id, duracion_segundos, created_at, ganador_id, gallo_a:gallo_a_id(id, nombre_gallo, galpon), gallo_b:gallo_b_id(id, nombre_gallo, galpon), ganador:ganador_id(id, nombre_gallo, galpon)",
+      "id, duracion_segundos, created_at, ganador_id, gallo_a:gallo_a_id(id, nombre_gallo, galpon, propietario), gallo_b:gallo_b_id(id, nombre_gallo, galpon, propietario), ganador:ganador_id(id, nombre_gallo, galpon, propietario)",
     )
     .not("duracion_segundos", "is", null)
     .not("ganador_id", "is", null)
@@ -26,6 +26,7 @@ export async function GET() {
       posicion: index + 1,
       disputa_id: row.id,
       ganador: ganador?.nombre_gallo ?? "",
+      propietario_ganador: ganador?.propietario ?? "",
       galpon_ganador: ganador?.galpon ?? "",
       gallo_a: galloA?.nombre_gallo ?? "",
       gallo_b: galloB?.nombre_gallo ?? "",

@@ -314,6 +314,7 @@ export default function Home() {
       }
 
       setPairs([]);
+      setSobrantes([]);
       setResultByMatch({});
       setDrawSummary(null);
       setDbMatchesCount(0);

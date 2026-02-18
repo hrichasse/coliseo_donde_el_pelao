@@ -16,6 +16,9 @@ function useProtected() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Solo ejecutar en el cliente
+    if (typeof window === "undefined") return;
+
     // Verificar token en sessionStorage
     const token = sessionStorage.getItem("auth_token");
 

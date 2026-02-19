@@ -6,7 +6,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import type { Rooster } from "@/lib/types";
+import type { Rooster, Galpon } from "@/lib/types";
 import { useAuth } from "@/hooks/useAuth";
 
 // Verificar autenticación en el cliente
@@ -71,11 +71,6 @@ const INITIAL_FORM: FormState = {
   peso_libras: "",
 };
 
-type Galpon = {
-  id: number;
-  nombre: string;
-};
-
 type SectionKey = "gallos" | "galpones" | "sorteo" | "reporte";
 
 type ReportRow = {
@@ -105,6 +100,7 @@ export default function Home() {
   const [assignGalpon, setAssignGalpon] = useState<string>("");
   const [showCreateGalpon, setShowCreateGalpon] = useState(false);
   const [nuevoGalponNombre, setNuevoGalponNombre] = useState("");
+  const [nuevoGalponPropietario, setNuevoGalponPropietario] = useState("");
   const [drawSummary, setDrawSummary] = useState<{
     total_inscritos: number;
     total_1v1: number;
@@ -140,6 +136,16 @@ export default function Home() {
     loadMatchesCount();
     loadReport();
   }, []);
+
+  // Rellenar propietario automáticamente cuando cambia el galpón seleccionado
+  useEffect(() => {
+    if (form.galpon && galpones.length > 0) {
+      const galponSeleccionado = galpones.find((g) => g.nombre === form.galpon);
+      if (galponSeleccionado) {
+        setForm((prev) => ({ ...prev, propietario: galponSeleccionado.propietario }));
+      }
+    }
+  }, [form.galpon, galpones]);
 
   async function loadReport() {
     try {
@@ -216,8 +222,8 @@ export default function Home() {
       setMessage("Gallo registrado correctamente");
       setShowCreateGalpon(false);
       setNuevoGalponNombre("");
+      setNuevoGalponPropietario("");
       await loadRoosters();
-      setForm((prev) => ({ ...prev, galpon: prev.galpon || assignGalpon || galpones[0]?.nombre || "" }));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado");
     } finally {
@@ -375,7 +381,7 @@ export default function Home() {
       const response = await fetch("/api/galpones", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre: galponNuevo.trim() }),
+        body: JSON.stringify({ nombre: galponNuevo.trim(), propietario: galponNuevo.trim() }),
       });
       const payload = await response.json();
       if (!response.ok) {
@@ -398,6 +404,11 @@ export default function Home() {
       return;
     }
 
+    if (!nuevoGalponPropietario.trim()) {
+      setError("El propietario del galpón es requerido");
+      return;
+    }
+
     setError("");
     setMessage("");
     setLoading(true);
@@ -405,7 +416,7 @@ export default function Home() {
       const response = await fetch("/api/galpones", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre: nuevoGalponNombre.trim() }),
+        body: JSON.stringify({ nombre: nuevoGalponNombre.trim(), propietario: nuevoGalponPropietario.trim() }),
       });
       const payload = await response.json();
       if (!response.ok) {
@@ -413,10 +424,11 @@ export default function Home() {
       }
 
       // Auto-seleccionar el nuevo galpón en el formulario
-      setForm((prev) => ({ ...prev, galpon: nuevoGalponNombre.trim() }));
+      setForm((prev) => ({ ...prev, galpon: nuevoGalponNombre.trim(), propietario: nuevoGalponPropietario.trim() }));
       
       // Limpiar y cerrar
       setNuevoGalponNombre("");
+      setNuevoGalponPropietario("");
       setShowCreateGalpon(false);
       setMessage("Galpón creado y seleccionado correctamente");
       
@@ -812,18 +824,26 @@ export default function Home() {
                   </div>
                   
                   {showCreateGalpon && (
-                    <div className="flex gap-2 bg-slate-800/50 rounded-lg p-3 border border-slate-700">
-                      <input
-                        value={nuevoGalponNombre}
-                        onChange={(e) => setNuevoGalponNombre(e.target.value)}
-                        placeholder="Nombre del nuevo galpón"
-                        className="flex-1 rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-slate-100 outline-none ring-cyan-400/50 placeholder:text-slate-500 focus:ring text-sm"
-                      />
+                    <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                      <div className="flex gap-2 mb-2">
+                        <input
+                          value={nuevoGalponNombre}
+                          onChange={(e) => setNuevoGalponNombre(e.target.value)}
+                          placeholder="Nombre del nuevo galpón"
+                          className="flex-1 rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-slate-100 outline-none ring-cyan-400/50 placeholder:text-slate-500 focus:ring text-sm"
+                        />
+                        <input
+                          value={nuevoGalponPropietario}
+                          onChange={(e) => setNuevoGalponPropietario(e.target.value)}
+                          placeholder="Propietario"
+                          className="flex-1 rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-slate-100 outline-none ring-cyan-400/50 placeholder:text-slate-500 focus:ring text-sm"
+                        />
+                      </div>
                       <button
                         type="button"
                         onClick={onCreateGalponFromRooster}
-                        disabled={loading || !nuevoGalponNombre.trim()}
-                        className="rounded-lg bg-cyan-500 px-4 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60"
+                        disabled={loading || !nuevoGalponNombre.trim() || !nuevoGalponPropietario.trim()}
+                        className="w-full rounded-lg bg-cyan-500 px-4 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60"
                       >
                         Guardar
                       </button>
@@ -986,12 +1006,12 @@ export default function Home() {
           <section className="space-y-6">
             <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-2xl shadow-black/20">
               <h2 className="mb-4 text-xl font-semibold text-fuchsia-200">Registrar galpón</h2>
-              <form onSubmit={onCreateGalpon} className="flex flex-col gap-3 md:flex-row">
+              <form onSubmit={onCreateGalpon} className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <input
                   value={galponNuevo}
                   onChange={(e) => setGalponNuevo(e.target.value)}
                   placeholder="Nombre del galpón"
-                  className="flex-1 rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-slate-100 outline-none ring-fuchsia-400/50 placeholder:text-slate-500 focus:ring"
+                  className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-slate-100 outline-none ring-fuchsia-400/50 placeholder:text-slate-500 focus:ring"
                   required
                 />
                 <button

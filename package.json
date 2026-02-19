@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+    "dev": "npm --prefix ./gallo run dev",
+    "build": "npm --prefix ./gallo run build",
+    "start": "npm --prefix ./gallo run start",
+    "lint": "npm --prefix ./gallo run lint"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.95.3",

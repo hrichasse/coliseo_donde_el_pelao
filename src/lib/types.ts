@@ -9,6 +9,13 @@ export type Rooster = {
   peso_libras: number;
 };
 
+export type Galpon = {
+  id: number;
+  nombre: string;
+  propietario: string;
+  created_at?: string;
+};
+
 export type MatchPair = {
   id: number;
   gallo_a_id: number;

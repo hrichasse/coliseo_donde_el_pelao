@@ -21,13 +21,19 @@ export async function POST(request: Request) {
   const body = await request.json();
 
   const nombre = String(body.nombre ?? "").trim();
+  const propietario = String(body.propietario ?? "").trim();
+  
   if (!nombre) {
     return NextResponse.json({ error: "El nombre del galpón es requerido" }, { status: 400 });
+  }
+  
+  if (!propietario) {
+    return NextResponse.json({ error: "El propietario del galpón es requerido" }, { status: 400 });
   }
 
   const { data, error } = await supabase
     .from("galpones")
-    .insert([{ nombre }])
+    .insert([{ nombre, propietario }])
     .select("*")
     .single();
 

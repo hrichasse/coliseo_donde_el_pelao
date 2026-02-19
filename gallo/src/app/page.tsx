@@ -171,7 +171,6 @@ export default function Home() {
 
       const firstGalpon = payload.data?.[0]?.nombre;
       if (firstGalpon) {
-        setForm((prev) => ({ ...prev, galpon: prev.galpon || firstGalpon }));
         setAssignGalpon((prev) => prev || firstGalpon);
       }
     } catch {

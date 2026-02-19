@@ -1,7 +1,7 @@
 import type { Rooster } from "@/lib/types";
 
 const LIBRA_A_GRAMOS = 453.59237;
-const MAX_WEIGHT_DIFF_LIBRAS = 0.2;
+const MAX_WEIGHT_DIFF_LIBRAS = 0.02;
 
 export const PESO_OPCIONES = [
   3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 3.1, 3.11, 3.12, 3.13, 3.14, 3.15,

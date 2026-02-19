@@ -20,9 +20,18 @@ export async function POST(request: Request) {
   const body = await request.json();
 
   const required = ["nombre_gallo", "galpon", "propietario", "color_gallo", "color_pata", "peso_libras"];
+  const fieldLabels: Record<string, string> = {
+    nombre_gallo: "frente",
+    galpon: "galpón",
+    propietario: "propietario",
+    color_gallo: "color de gallo",
+    color_pata: "color de pata",
+    peso_libras: "peso (libras)",
+  };
   for (const field of required) {
     if (body[field] === undefined || body[field] === null || body[field] === "") {
-      return NextResponse.json({ error: `El campo ${field} es requerido` }, { status: 400 });
+      const label = fieldLabels[field] ?? field;
+      return NextResponse.json({ error: `El campo ${label} es requerido` }, { status: 400 });
     }
   }
 
@@ -31,11 +40,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "peso_libras debe ser un número mayor a 0" }, { status: 400 });
   }
 
+  const frente = String(body.nombre_gallo).trim();
+  const { count: frenteCount, error: frenteError } = await supabase
+    .from("gallos")
+    .select("id", { count: "exact", head: true })
+    .eq("nombre_gallo", frente);
+
+  if (frenteError) {
+    return NextResponse.json({ error: frenteError.message }, { status: 500 });
+  }
+
+  if ((frenteCount ?? 0) >= 2) {
+    return NextResponse.json(
+      { error: "El frente ya tiene 2 gallos registrados. Usa otro frente." },
+      { status: 400 },
+    );
+  }
+
   const { data, error } = await supabase
     .from("gallos")
     .insert([
       {
-        nombre_gallo: String(body.nombre_gallo).trim(),
+        nombre_gallo: frente,
         galpon: String(body.galpon).trim(),
         propietario: String(body.propietario).trim(),
         color_gallo: String(body.color_gallo).trim(),

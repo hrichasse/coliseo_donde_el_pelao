@@ -39,16 +39,17 @@ export default async function PrintPage({
         <thead>
           <tr>
             <th className="border p-2">#</th>
-            <th className="border p-2">Gallo A</th>
+            <th className="border p-2">Frente A</th>
             <th className="border p-2">Galpón A</th>
             <th className="border p-2">Propietario A</th>
             <th className="border p-2">Peso A (lb)</th>
-            <th className="border p-2">Gallo B</th>
+            <th className="border p-2">Frente B</th>
             <th className="border p-2">Galpón B</th>
             <th className="border p-2">Propietario B</th>
             <th className="border p-2">Peso B (lb)</th>
             <th className="border p-2">Dif (g)</th>
             <th className="border p-2">Tiempo (manual)</th>
+            <th className="border p-2">Puntaje</th>
           </tr>
         </thead>
         <tbody>
@@ -65,6 +66,9 @@ export default async function PrintPage({
               <td className="border p-2 text-right">{pair.pesoB}</td>
               <td className="border p-2 text-right">{pair.diferencia}</td>
               <td className="border p-2" style={{ minWidth: 140 }}>
+                
+              </td>
+              <td className="border p-2" style={{ minWidth: 100 }}>
                 
               </td>
             </tr>

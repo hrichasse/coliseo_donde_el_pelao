@@ -75,14 +75,13 @@ type SectionKey = "gallos" | "galpones" | "sorteo" | "reporte";
 
 type ReportRow = {
   posicion: number;
-  disputa_id: number;
-  ganador: string;
-  propietario_ganador: string;
-  galpon_ganador: string;
-  gallo_a: string;
-  gallo_b: string;
-  duracion_segundos: number;
-  duracion_minutos: number;
+  galpon: string;
+  propietario: string;
+  frente: string;
+  puntos: number;
+  peleas: number;
+  tiempo_total_segundos: number;
+  tiempo_total_minutos: number;
 };
 
 export default function Home() {
@@ -137,6 +136,29 @@ export default function Home() {
     loadReport();
   }, []);
 
+  useEffect(() => {
+    if (pairs.length === 0) {
+      setSobrantes([]);
+      setDrawSummary(null);
+      return;
+    }
+
+    if (roosters.length === 0) {
+      return;
+    }
+
+    const matchedIds = new Set(pairs.flatMap((pair) => [pair.gallo_a_id, pair.gallo_b_id]));
+    const sobrantesActual = roosters.filter((rooster) => !matchedIds.has(rooster.id));
+
+    setSobrantes(sobrantesActual);
+    setDrawSummary({
+      total_inscritos: roosters.length,
+      total_1v1: pairs.length,
+      total_sobrantes: sobrantesActual.length,
+      total_1v1_posibles: Math.floor(roosters.length / 2),
+    });
+  }, [pairs, roosters]);
+
   // Rellenar propietario automáticamente cuando cambia el galpón seleccionado
   useEffect(() => {
     if (form.galpon && galpones.length > 0) {
@@ -186,6 +208,22 @@ export default function Home() {
         throw new Error(payload.error ?? "Error cargando conteo de sorteos");
       }
       setDbMatchesCount(payload.count ?? 0);
+
+      if (Array.isArray(payload.data) && payload.data.length > 0) {
+        setPairs(payload.data);
+        setResultByMatch(
+          Object.fromEntries(
+            payload.data.map((pair: DrawPair) => [
+              pair.id,
+              {
+                ganadorId: pair.ganador_id ? String(pair.ganador_id) : "",
+                segundos:
+                  pair.duracion_segundos != null ? convertirSegundosAMMSS(pair.duracion_segundos) : "",
+              },
+            ]),
+          ),
+        );
+      }
     } catch {
       setDbMatchesCount(0);
     }
@@ -197,6 +235,17 @@ export default function Home() {
     if (!form.galpon) {
       setError("Primero debes registrar al menos un galpón en el apartado Galpón");
       return;
+    }
+
+    const frenteIngresado = form.nombre_gallo.trim().toLowerCase();
+    if (frenteIngresado) {
+      const frenteCount = roosters.filter(
+        (rooster) => rooster.nombre_gallo.trim().toLowerCase() === frenteIngresado,
+      ).length;
+      if (frenteCount >= 2) {
+        setError("El frente ya tiene 2 gallos registrados. Usa otro frente.");
+        return;
+      }
     }
 
     setError("");
@@ -218,7 +267,7 @@ export default function Home() {
       }
 
       setForm(INITIAL_FORM);
-      setMessage("Gallo registrado correctamente");
+      setMessage("Frente registrado correctamente");
       setShowCreateGalpon(false);
       setNuevoGalponNombre("");
       setNuevoGalponPropietario("");
@@ -485,7 +534,7 @@ export default function Home() {
 
     autoTable(doc, {
       startY: 20,
-      head: [["#", "Gallo A", "Galpón A", "Propietario A", "Peso A", "Gallo B", "Galpón B", "Propietario B", "Peso B", "Dif (g)", "Tiempo (manual)"]],
+      head: [["#", "Frente A", "Galpón A", "Propietario A", "Peso A", "Frente B", "Galpón B", "Propietario B", "Peso B", "Dif (g)", "Tiempo (manual)", "Puntaje"]],
       body: pairs.map((pair, index) => [
         String(index + 1),
         pair.gallo_a_nombre,
@@ -497,6 +546,7 @@ export default function Home() {
         pair.propietario_b,
         pair.peso_b_libras.toFixed(2),
         String(pair.diferencia_gramos),
+        "",
         "",
       ]),
       styles: { fontSize: 8 },
@@ -523,10 +573,11 @@ export default function Home() {
 
   async function onSaveResult(pair: DrawPair) {
     const current = resultByMatch[pair.id];
-    const ganadorId = Number(current?.ganadorId ?? "");
-    const tiempoMMSS = current?.segundos ?? "";
+    const isEmpate = current?.ganadorId === "empate";
+    const ganadorId = isEmpate ? null : Number(current?.ganadorId ?? "");
+    const tiempoMMSS = isEmpate ? "6:00" : current?.segundos ?? "";
 
-    if (!ganadorId) {
+    if (!isEmpate && !ganadorId) {
       setError("Debes seleccionar un ganador");
       return;
     }
@@ -560,7 +611,11 @@ export default function Home() {
         throw new Error(payload.error ?? "No se pudo guardar el resultado");
       }
 
-      const ganadorNombre = ganadorId === pair.gallo_a_id ? pair.gallo_a_nombre : pair.gallo_b_nombre;
+      const ganadorNombre = isEmpate
+        ? "Empate"
+        : ganadorId === pair.gallo_a_id
+          ? pair.gallo_a_nombre
+          : pair.gallo_b_nombre;
 
       setPairs((prev) =>
         prev.map((item) =>
@@ -574,7 +629,8 @@ export default function Home() {
         ),
       );
 
-      setMessage(`✓ Pelea guardada: ${ganadorNombre} ganó en ${tiempoMMSS} (${totalSegundos}s)`);
+      const resultadoLabel = isEmpate ? "empate" : "ganó";
+      setMessage(`✓ Pelea guardada: ${ganadorNombre} ${resultadoLabel} en ${tiempoMMSS} (${totalSegundos}s)`);
       await loadReport();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado");
@@ -622,24 +678,25 @@ export default function Home() {
 
     const doc = new jsPDF({ orientation: "landscape" });
     doc.setFontSize(16);
-    doc.text("Ranking del mejor tiempo del día", 14, 14);
+    doc.text("Ranking del Torneo - Por Puntos", 14, 14);
 
     autoTable(doc, {
       startY: 20,
-      head: [["Pos.", "Ganador", "Propietario", "Galpón ganador", "Disputa", "Tiempo (s)", "Tiempo (min)"]],
+      head: [["Pos.", "Galpón", "Frente", "Propietario", "Puntos", "Peleas", "Tiempo Total (s)", "Tiempo Total (min)"]],
       body: reportRows.map((row) => [
         String(row.posicion),
-        row.ganador,
-        row.propietario_ganador,
-        row.galpon_ganador,
-        `${row.gallo_a} vs ${row.gallo_b}`,
-        String(row.duracion_segundos),
-        row.duracion_minutos.toFixed(2),
+        row.galpon,
+        row.frente,
+        row.propietario,
+        String(row.puntos),
+        String(row.peleas),
+        String(row.tiempo_total_segundos),
+        row.tiempo_total_minutos.toFixed(2),
       ]),
       styles: { fontSize: 9 },
     });
 
-    doc.save("ranking-mejor-tiempo.pdf");
+    doc.save("ranking-torneo-puntos.pdf");
   }
 
   const galponesConGallos = useMemo(() => {
@@ -789,12 +846,12 @@ export default function Home() {
         {activeSection === "gallos" && (
           <section className="space-y-6">
             <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-2xl shadow-black/20">
-              <h2 className="mb-4 text-xl font-semibold text-cyan-200">Registro de gallos</h2>
+              <h2 className="mb-4 text-xl font-semibold text-cyan-200">Registro de frentes</h2>
               <form onSubmit={onSubmit} className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
                 <input
                   value={form.nombre_gallo}
                   onChange={(e) => setForm((prev) => ({ ...prev, nombre_gallo: e.target.value }))}
-                  placeholder="Nombre del gallo"
+                  placeholder="Frente (max 2)"
                   className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-slate-100 outline-none ring-cyan-400/50 placeholder:text-slate-500 focus:ring"
                   required
                 />
@@ -950,13 +1007,13 @@ export default function Home() {
             </div>
 
             <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-2xl shadow-black/20">
-              <h2 className="mb-4 text-xl font-semibold text-cyan-200">Listado de gallos inscritos</h2>
+              <h2 className="mb-4 text-xl font-semibold text-cyan-200">Listado de frentes inscritos</h2>
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-sm text-slate-100">
                   <thead>
                     <tr>
                       <th className="border border-slate-700 bg-slate-800 p-2">ID</th>
-                      <th className="border border-slate-700 bg-slate-800 p-2">Gallo</th>
+                      <th className="border border-slate-700 bg-slate-800 p-2">Frente</th>
                       <th className="border border-slate-700 bg-slate-800 p-2">Galpón</th>
                       <th className="border border-slate-700 bg-slate-800 p-2">Propietario</th>
                       <th className="border border-slate-700 bg-slate-800 p-2">Color gallo</th>
@@ -1156,7 +1213,7 @@ export default function Home() {
 
                       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                         <div className="rounded-lg border border-cyan-400/30 bg-cyan-500/10 p-3">
-                          <p className="mb-1 text-xs font-semibold text-cyan-300">GALLO A</p>
+                          <p className="mb-1 text-xs font-semibold text-cyan-300">FRENTE A</p>
                           <p className="text-base font-semibold">{pair.gallo_a_nombre}</p>
                           <p className="text-sm text-slate-300">Galpón: {pair.galpon_a}</p>
                           <p className="text-sm text-slate-300">Propietario: {pair.propietario_a}</p>
@@ -1164,7 +1221,7 @@ export default function Home() {
                         </div>
 
                         <div className="rounded-lg border border-fuchsia-400/30 bg-fuchsia-500/10 p-3">
-                          <p className="mb-1 text-xs font-semibold text-fuchsia-300">GALLO B</p>
+                          <p className="mb-1 text-xs font-semibold text-fuchsia-300">FRENTE B</p>
                           <p className="text-base font-semibold">{pair.gallo_b_nombre}</p>
                           <p className="text-sm text-slate-300">Galpón: {pair.galpon_b}</p>
                           <p className="text-sm text-slate-300">Propietario: {pair.propietario_b}</p>
@@ -1177,18 +1234,20 @@ export default function Home() {
                           <label className="mb-1 block text-xs font-semibold text-slate-300">Ganador</label>
                           <select
                             value={resultByMatch[pair.id]?.ganadorId ?? ""}
-                            onChange={(e) =>
+                            onChange={(e) => {
+                              const nextGanador = e.target.value;
                               setResultByMatch((prev) => ({
                                 ...prev,
                                 [pair.id]: {
-                                  ganadorId: e.target.value,
-                                  segundos: prev[pair.id]?.segundos ?? "",
+                                  ganadorId: nextGanador,
+                                  segundos: nextGanador === "empate" ? "6:00" : prev[pair.id]?.segundos ?? "",
                                 },
-                              }))
-                            }
+                              }));
+                            }}
                             className="w-full rounded-md border border-slate-600 bg-slate-950/70 px-3 py-2 text-sm"
                           >
                             <option value="">Seleccione ganador</option>
+                            <option value="empate">Empate</option>
                             <option value={pair.gallo_a_id}>{pair.gallo_a_nombre}</option>
                             <option value={pair.gallo_b_id}>{pair.gallo_b_nombre}</option>
                           </select>
@@ -1214,6 +1273,7 @@ export default function Home() {
                                 }));
                               }
                             }}
+                            disabled={resultByMatch[pair.id]?.ganadorId === "empate"}
                             className="w-full rounded-md border border-slate-600 bg-slate-950/70 px-3 py-2 text-sm text-center text-lg font-mono"
                           />
                         </div>
@@ -1236,7 +1296,14 @@ export default function Home() {
                           <button
                             type="button"
                             onClick={() => onSaveResult(pair)}
-                            disabled={loading || !resultByMatch[pair.id]?.ganadorId || !resultByMatch[pair.id]?.segundos || !resultByMatch[pair.id].segundos.includes(":") || convertirMMSSASegundos(resultByMatch[pair.id]?.segundos ?? "") <= 0}
+                            disabled={
+                              loading ||
+                              !resultByMatch[pair.id]?.ganadorId ||
+                              (resultByMatch[pair.id]?.ganadorId !== "empate" &&
+                                (!resultByMatch[pair.id]?.segundos ||
+                                  !resultByMatch[pair.id].segundos.includes(":") ||
+                                  convertirMMSSASegundos(resultByMatch[pair.id]?.segundos ?? "") <= 0))
+                            }
                             className="w-full rounded-md bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed transition"
                           >
                             {loading ? "Guardando..." : "Guardar resultado de la disputa"}
@@ -1272,7 +1339,7 @@ export default function Home() {
           <section className="space-y-6">
             <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-2xl shadow-black/20">
               <div className="mb-4 flex items-center justify-between gap-3">
-                <h2 className="text-xl font-semibold text-amber-200">Reporte - Ranking mejor tiempo del día</h2>
+                <h2 className="text-xl font-semibold text-amber-200">Reporte - Ranking del Torneo (Por Puntos)</h2>
                 <button
                   type="button"
                   onClick={onDownloadReportPdf}
@@ -1290,24 +1357,26 @@ export default function Home() {
                     <thead>
                       <tr>
                         <th className="border border-slate-700 bg-slate-800 p-2">Posición</th>
-                        <th className="border border-slate-700 bg-slate-800 p-2">Ganador</th>
+                        <th className="border border-slate-700 bg-slate-800 p-2">Galpón</th>
                         <th className="border border-slate-700 bg-slate-800 p-2">Propietario</th>
-                        <th className="border border-slate-700 bg-slate-800 p-2">Galpón ganador</th>
-                        <th className="border border-slate-700 bg-slate-800 p-2">Disputa</th>
-                        <th className="border border-slate-700 bg-slate-800 p-2">Tiempo (seg)</th>
-                        <th className="border border-slate-700 bg-slate-800 p-2">Tiempo (min)</th>
+                        <th className="border border-slate-700 bg-slate-800 p-2">Frente</th>
+                        <th className="border border-slate-700 bg-slate-800 p-2">Puntos</th>
+                        <th className="border border-slate-700 bg-slate-800 p-2">Peleas</th>
+                        <th className="border border-slate-700 bg-slate-800 p-2 text-xs">Tiempo Total (seg)</th>
+                        <th className="border border-slate-700 bg-slate-800 p-2 text-xs">Tiempo Total (min)</th>
                       </tr>
                     </thead>
                     <tbody>
                       {reportRows.map((row) => (
-                        <tr key={row.disputa_id} className="hover:bg-slate-800/70">
+                        <tr key={row.galpon} className="hover:bg-slate-800/70">
                           <td className="border border-slate-700 p-2 text-center font-semibold text-amber-200">{row.posicion}</td>
-                          <td className="border border-slate-700 p-2">{row.ganador}</td>
-                          <td className="border border-slate-700 p-2">{row.propietario_ganador}</td>
-                          <td className="border border-slate-700 p-2">{row.galpon_ganador}</td>
-                          <td className="border border-slate-700 p-2">{row.gallo_a} vs {row.gallo_b}</td>
-                          <td className="border border-slate-700 p-2 text-right">{row.duracion_segundos}</td>
-                          <td className="border border-slate-700 p-2 text-right">{row.duracion_minutos.toFixed(2)}</td>
+                          <td className="border border-slate-700 p-2">{row.galpon}</td>
+                          <td className="border border-slate-700 p-2">{row.propietario}</td>
+                          <td className="border border-slate-700 p-2 font-semibold text-cyan-300">{row.frente}</td>
+                          <td className="border border-slate-700 p-2 text-center font-bold text-emerald-300">{row.puntos}</td>
+                          <td className="border border-slate-700 p-2 text-center">{row.peleas}</td>
+                          <td className="border border-slate-700 p-2 text-right text-xs">{row.tiempo_total_segundos}</td>
+                          <td className="border border-slate-700 p-2 text-right text-xs">{row.tiempo_total_minutos.toFixed(2)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1315,20 +1384,21 @@ export default function Home() {
 
                   {reportRows.length > 0 && (
                     <div className="mt-6 rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-5">
-                      <h3 className="mb-4 text-lg font-semibold text-emerald-200">🏆 Ganador del día - Mejor tiempo</h3>
-                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <h3 className="mb-4 text-lg font-semibold text-emerald-200">🏆 Ganador del Torneo</h3>
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                         <div className="rounded-lg border border-emerald-400/50 bg-slate-900/50 p-4">
-                          <p className="mb-1 text-xs font-semibold text-emerald-300">GALLO GANADOR</p>
-                          <p className="mb-3 text-xl font-bold text-emerald-100">{reportRows[0].ganador}</p>
-                          <div className="space-y-1 text-sm text-slate-300">
-                            <p><span className="font-semibold text-slate-200">Propietario:</span> {reportRows[0].propietario_ganador}</p>
-                            <p><span className="font-semibold text-slate-200">Galpón:</span> {reportRows[0].galpon_ganador}</p>
-                          </div>
+                          <p className="mb-1 text-xs font-semibold text-emerald-300">GALPÓN GANADOR</p>
+                          <p className="mb-3 text-lg font-bold text-emerald-100">{reportRows[0].galpon}</p>
+                          <p className="text-sm text-slate-400">{reportRows[0].propietario}</p>
                         </div>
                         <div className="rounded-lg border border-emerald-400/50 bg-slate-900/50 p-4">
-                          <p className="mb-1 text-xs font-semibold text-emerald-300">TIEMPO RÉCORD</p>
-                          <p className="mb-3 text-2xl font-bold text-emerald-100">{reportRows[0].duracion_segundos} segundos</p>
-                          <p className="text-sm text-slate-400">({reportRows[0].duracion_minutos.toFixed(2)} minutos)</p>
+                          <p className="mb-1 text-xs font-semibold text-emerald-300">FRENTE GANADOR</p>
+                          <p className="mb-3 text-lg font-bold text-cyan-300">{reportRows[0].frente}</p>
+                        </div>
+                        <div className="rounded-lg border border-emerald-400/50 bg-slate-900/50 p-4">
+                          <p className="mb-1 text-xs font-semibold text-emerald-300">PUNTOS TOTALES</p>
+                          <p className="mb-3 text-2xl font-bold text-emerald-100">{reportRows[0].puntos} pts</p>
+                          <p className="text-sm text-slate-400">({reportRows[0].peleas} peleas)</p>
                         </div>
                       </div>
                     </div>

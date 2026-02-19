@@ -17,7 +17,6 @@ create table public.usuarios (
 create table public.galpones (
   id bigint generated always as identity primary key,
   nombre text not null unique,
-  propietario text not null,
   created_at timestamptz not null default now()
 );
 

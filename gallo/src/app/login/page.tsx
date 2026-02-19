@@ -49,9 +49,17 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-950 p-4">
-      <div className="w-full max-w-md rounded-lg border border-slate-700 bg-slate-900 p-8">
-        <h1 className="mb-8 text-center text-2xl font-bold text-white">
+    <main
+      className="flex min-h-screen items-center justify-center p-4"
+      style={{
+        backgroundImage: "url('/images/logo.jpeg'), url('/images/logo.jpeg')",
+        backgroundSize: "cover, auto 84%",
+        backgroundPosition: "center, center",
+        backgroundRepeat: "no-repeat, no-repeat",
+      }}
+    >
+      <div className="w-full max-w-md rounded-lg border border-slate-600 bg-slate-950/95 p-8 backdrop-blur-sm">
+        <h1 className="mb-8 text-center text-2xl font-extrabold text-slate-50 drop-shadow-lg">
           Torneos de Gallos
         </h1>
 

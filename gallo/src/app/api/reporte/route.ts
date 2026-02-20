@@ -27,6 +27,7 @@ export async function GET() {
       puntos: number;
       tiempo_total: number;
       peleas: number;
+      mejor_tiempo_victoria_segundos: number | null;
     }
   > = {};
 
@@ -50,6 +51,7 @@ export async function GET() {
           puntos: 0,
           tiempo_total: 0,
           peleas: 0,
+          mejor_tiempo_victoria_segundos: null,
         };
       }
 
@@ -65,10 +67,15 @@ export async function GET() {
       } else if (row.ganador_id === galloA?.id) {
         // Victoria
         puntosA = 3;
+        const mejorActual = frenteStats[keyA].mejor_tiempo_victoria_segundos;
+        frenteStats[keyA].mejor_tiempo_victoria_segundos =
+          mejorActual == null ? duracionSegundos : Math.min(mejorActual, duracionSegundos);
       }
 
       frenteStats[keyA].puntos += puntosA;
-      frenteStats[keyA].tiempo_total += duracionSegundos;
+      if (row.ganador_id === galloA?.id) {
+        frenteStats[keyA].tiempo_total += duracionSegundos;
+      }
       frenteStats[keyA].peleas += 1;
     }
 
@@ -87,6 +94,7 @@ export async function GET() {
           puntos: 0,
           tiempo_total: 0,
           peleas: 0,
+          mejor_tiempo_victoria_segundos: null,
         };
       }
 
@@ -102,10 +110,15 @@ export async function GET() {
       } else if (row.ganador_id === galloB?.id) {
         // Victoria
         puntosB = 3;
+        const mejorActual = frenteStats[keyB].mejor_tiempo_victoria_segundos;
+        frenteStats[keyB].mejor_tiempo_victoria_segundos =
+          mejorActual == null ? duracionSegundos : Math.min(mejorActual, duracionSegundos);
       }
 
       frenteStats[keyB].puntos += puntosB;
-      frenteStats[keyB].tiempo_total += duracionSegundos;
+      if (row.ganador_id === galloB?.id) {
+        frenteStats[keyB].tiempo_total += duracionSegundos;
+      }
       frenteStats[keyB].peleas += 1;
     }
   });
@@ -135,6 +148,7 @@ export async function GET() {
         peleas: row.peleas,
         tiempo_total_segundos: row.tiempo_total,
         tiempo_total_minutos: Number((row.tiempo_total / 60).toFixed(2)),
+        mejor_tiempo_victoria_segundos: row.mejor_tiempo_victoria_segundos,
       };
     });
 

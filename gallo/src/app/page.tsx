@@ -85,6 +85,7 @@ type ReportRow = {
   peleas: number;
   tiempo_total_segundos: number;
   tiempo_total_minutos: number;
+  mejor_tiempo_victoria_segundos: number | null;
 };
 
 export default function Home() {
@@ -725,7 +726,7 @@ export default function Home() {
 
     autoTable(doc, {
       startY: 20,
-      head: [["Pos.", "Galpón", "Plaqueo", "Frente", "Propietario", "Puntos", "Peleas", "Tiempo Total (s)", "Tiempo Total (min)"]],
+      head: [["Pos.", "Galpón", "Plaqueo", "Frente", "Propietario", "Puntos", "Peleas", "Tiempo Total (MM:SS)"]],
       body: reportRows.map((row) => [
         String(row.posicion),
         row.galpon,
@@ -734,8 +735,7 @@ export default function Home() {
         row.propietario,
         String(row.puntos),
         String(row.peleas),
-        String(row.tiempo_total_segundos),
-        row.tiempo_total_minutos.toFixed(2),
+        convertirSegundosAMMSS(row.tiempo_total_segundos),
       ]),
       styles: { fontSize: 9 },
     });
@@ -744,7 +744,9 @@ export default function Home() {
   }
 
   function onDownloadPollon() {
-    const pollones = reportRows.filter((row) => row.tiempo_total_segundos < 60);
+    const pollones = reportRows.filter(
+      (row) => row.mejor_tiempo_victoria_segundos != null && row.mejor_tiempo_victoria_segundos < 60,
+    );
     
     if (pollones.length === 0) {
       setError("No hay ningún Pollón (menos de 1 minuto)");
@@ -757,7 +759,7 @@ export default function Home() {
 
     autoTable(doc, {
       startY: 20,
-      head: [["Pos.", "Galpón", "Plaqueo", "Frente", "Propietario", "Puntos", "Peleas", "Tiempo Total (s)", "Tiempo Total (min)"]],
+      head: [["Pos.", "Galpón", "Plaqueo", "Frente", "Propietario", "Puntos", "Peleas", "Mejor Tiempo Pollón (MM:SS)"]],
       body: pollones.map((row) => [
         String(row.posicion),
         row.galpon,
@@ -766,8 +768,7 @@ export default function Home() {
         row.propietario,
         String(row.puntos),
         String(row.peleas),
-        String(row.tiempo_total_segundos),
-        row.tiempo_total_minutos.toFixed(2),
+        convertirSegundosAMMSS(row.mejor_tiempo_victoria_segundos ?? 0),
       ]),
       styles: { fontSize: 9 },
     });
@@ -1435,7 +1436,7 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={onDownloadPollon}
-                    className={`rounded-lg border border-yellow-600 px-5 py-3 text-sm font-semibold text-yellow-300 transition hover:bg-yellow-500/20 ${reportRows.filter((r) => r.tiempo_total_segundos < 60).length === 0 ? "pointer-events-none opacity-50" : ""}`}
+                    className={`rounded-lg border border-yellow-600 px-5 py-3 text-sm font-semibold text-yellow-300 transition hover:bg-yellow-500/20 ${reportRows.filter((r) => r.mejor_tiempo_victoria_segundos != null && r.mejor_tiempo_victoria_segundos < 60).length === 0 ? "pointer-events-none opacity-50" : ""}`}
                   >
                     Exportar ranking Pollón
                   </button>
@@ -1456,8 +1457,7 @@ export default function Home() {
                         <th className="border border-slate-700 bg-slate-800 p-2">Frente</th>
                         <th className="border border-slate-700 bg-slate-800 p-2">Puntos</th>
                         <th className="border border-slate-700 bg-slate-800 p-2">Peleas</th>
-                        <th className="border border-slate-700 bg-slate-800 p-2 text-xs">Tiempo / Pollón</th>
-                        <th className="border border-slate-700 bg-slate-800 p-2 text-xs">Tiempo Total (min)</th>
+                        <th className="border border-slate-700 bg-slate-800 p-2 text-xs">Tiempo Total (MM:SS)</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1470,14 +1470,7 @@ export default function Home() {
                           <td className="border border-slate-700 p-2 font-semibold text-cyan-300">{row.frente}</td>
                           <td className="border border-slate-700 p-2 text-center font-bold text-emerald-300">{row.puntos}</td>
                           <td className="border border-slate-700 p-2 text-center">{row.peleas}</td>
-                          <td className={`border border-slate-700 p-2 text-right text-xs font-semibold ${
-                            row.tiempo_total_segundos < 60
-                              ? "bg-yellow-500/20 text-yellow-300"
-                              : "text-slate-300"
-                          }`}>
-                            {row.tiempo_total_segundos < 60 ? "POLLÓN !" : "Sin Pollón"}
-                          </td>
-                          <td className="border border-slate-700 p-2 text-right text-xs">{row.tiempo_total_minutos.toFixed(2)}</td>
+                          <td className="border border-slate-700 p-2 text-center text-xs font-mono">{convertirSegundosAMMSS(row.tiempo_total_segundos)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1495,6 +1488,7 @@ export default function Home() {
                         <div className="rounded-lg border border-emerald-400/50 bg-slate-900/50 p-4">
                           <p className="mb-1 text-xs font-semibold text-emerald-300">FRENTE GANADOR</p>
                           <p className="mb-3 text-lg font-bold text-cyan-300">{reportRows[0].frente}</p>
+                          <p className="text-sm text-slate-300">Tiempo: {convertirSegundosAMMSS(reportRows[0].tiempo_total_segundos)}</p>
                         </div>
                         <div className="rounded-lg border border-emerald-400/50 bg-slate-900/50 p-4">
                           <p className="mb-1 text-xs font-semibold text-emerald-300">PUNTOS TOTALES</p>

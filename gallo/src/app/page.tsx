@@ -80,6 +80,7 @@ type ReportRow = {
   galpon: string;
   propietario: string;
   frente: string;
+  plaqueo: string | null;
   puntos: number;
   peleas: number;
   tiempo_total_segundos: number;
@@ -724,10 +725,11 @@ export default function Home() {
 
     autoTable(doc, {
       startY: 20,
-      head: [["Pos.", "Galpón", "Frente", "Propietario", "Puntos", "Peleas", "Tiempo Total (s)", "Tiempo Total (min)"]],
+      head: [["Pos.", "Galpón", "Plaqueo", "Frente", "Propietario", "Puntos", "Peleas", "Tiempo Total (s)", "Tiempo Total (min)"]],
       body: reportRows.map((row) => [
         String(row.posicion),
         row.galpon,
+        row.plaqueo || "-",
         row.frente,
         row.propietario,
         String(row.puntos),
@@ -739,6 +741,38 @@ export default function Home() {
     });
 
     doc.save("ranking-torneo-puntos.pdf");
+  }
+
+  function onDownloadPollon() {
+    const pollones = reportRows.filter((row) => row.tiempo_total_segundos < 60);
+    
+    if (pollones.length === 0) {
+      setError("No hay ningún Pollón (menos de 1 minuto)");
+      return;
+    }
+
+    const doc = new jsPDF({ orientation: "landscape" });
+    doc.setFontSize(16);
+    doc.text("Ranking Pollón - Gallos Ganadores en Menos de 1 Minuto", 14, 14);
+
+    autoTable(doc, {
+      startY: 20,
+      head: [["Pos.", "Galpón", "Plaqueo", "Frente", "Propietario", "Puntos", "Peleas", "Tiempo Total (s)", "Tiempo Total (min)"]],
+      body: pollones.map((row) => [
+        String(row.posicion),
+        row.galpon,
+        row.plaqueo || "-",
+        row.frente,
+        row.propietario,
+        String(row.puntos),
+        String(row.peleas),
+        String(row.tiempo_total_segundos),
+        row.tiempo_total_minutos.toFixed(2),
+      ]),
+      styles: { fontSize: 9 },
+    });
+
+    doc.save("ranking-pollon.pdf");
   }
 
   const galponesConGallos = useMemo(() => {
@@ -1390,13 +1424,22 @@ export default function Home() {
             <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-2xl shadow-black/20">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <h2 className="text-xl font-semibold text-amber-200">Reporte - Ranking del Torneo (Por Puntos)</h2>
-                <button
-                  type="button"
-                  onClick={onDownloadReportPdf}
-                  className={`rounded-lg border border-slate-600 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:bg-slate-800 ${reportRows.length === 0 ? "pointer-events-none opacity-50" : ""}`}
-                >
-                  Exportar ranking PDF
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={onDownloadReportPdf}
+                    className={`rounded-lg border border-slate-600 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:bg-slate-800 ${reportRows.length === 0 ? "pointer-events-none opacity-50" : ""}`}
+                  >
+                    Exportar ranking PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onDownloadPollon}
+                    className={`rounded-lg border border-yellow-600 px-5 py-3 text-sm font-semibold text-yellow-300 transition hover:bg-yellow-500/20 ${reportRows.filter((r) => r.tiempo_total_segundos < 60).length === 0 ? "pointer-events-none opacity-50" : ""}`}
+                  >
+                    Exportar ranking Pollón
+                  </button>
+                </div>
               </div>
 
               {reportRows.length === 0 ? (
@@ -1408,24 +1451,32 @@ export default function Home() {
                       <tr>
                         <th className="border border-slate-700 bg-slate-800 p-2">Posición</th>
                         <th className="border border-slate-700 bg-slate-800 p-2">Galpón</th>
+                        <th className="border border-slate-700 bg-slate-800 p-2">Plaqueo</th>
                         <th className="border border-slate-700 bg-slate-800 p-2">Propietario</th>
                         <th className="border border-slate-700 bg-slate-800 p-2">Frente</th>
                         <th className="border border-slate-700 bg-slate-800 p-2">Puntos</th>
                         <th className="border border-slate-700 bg-slate-800 p-2">Peleas</th>
-                        <th className="border border-slate-700 bg-slate-800 p-2 text-xs">Tiempo Total (seg)</th>
+                        <th className="border border-slate-700 bg-slate-800 p-2 text-xs">Tiempo / Pollón</th>
                         <th className="border border-slate-700 bg-slate-800 p-2 text-xs">Tiempo Total (min)</th>
                       </tr>
                     </thead>
                     <tbody>
                       {reportRows.map((row) => (
-                        <tr key={row.galpon} className="hover:bg-slate-800/70">
+                        <tr key={`${row.galpon}-${row.frente}`} className="hover:bg-slate-800/70">
                           <td className="border border-slate-700 p-2 text-center font-semibold text-amber-200">{row.posicion}</td>
                           <td className="border border-slate-700 p-2">{row.galpon}</td>
+                          <td className="border border-slate-700 p-2 text-center text-sm font-mono">{row.plaqueo || "-"}</td>
                           <td className="border border-slate-700 p-2">{row.propietario}</td>
                           <td className="border border-slate-700 p-2 font-semibold text-cyan-300">{row.frente}</td>
                           <td className="border border-slate-700 p-2 text-center font-bold text-emerald-300">{row.puntos}</td>
                           <td className="border border-slate-700 p-2 text-center">{row.peleas}</td>
-                          <td className="border border-slate-700 p-2 text-right text-xs">{row.tiempo_total_segundos}</td>
+                          <td className={`border border-slate-700 p-2 text-right text-xs font-semibold ${
+                            row.tiempo_total_segundos < 60
+                              ? "bg-yellow-500/20 text-yellow-300"
+                              : "text-slate-300"
+                          }`}>
+                            {row.tiempo_total_segundos < 60 ? "POLLÓN !" : "Sin Pollón"}
+                          </td>
                           <td className="border border-slate-700 p-2 text-right text-xs">{row.tiempo_total_minutos.toFixed(2)}</td>
                         </tr>
                       ))}

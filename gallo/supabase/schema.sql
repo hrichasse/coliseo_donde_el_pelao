@@ -40,10 +40,11 @@ begin
   select count(*) into frente_count
   from public.gallos
   where nombre_gallo = new.nombre_gallo
+    and galpon = new.galpon
     and (tg_op = 'INSERT' or id <> new.id);
 
   if frente_count >= 2 then
-    raise exception 'El frente ya tiene 2 gallos registrados.';
+    raise exception 'El frente ya tiene 2 gallos registrados en este galpón.';
   end if;
 
   return new;

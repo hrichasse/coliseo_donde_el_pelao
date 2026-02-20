@@ -5,7 +5,7 @@ ALTER TABLE public.emparejamientos
 ADD CONSTRAINT max_weight_diff_check 
 CHECK (diferencia_gramos <= 9);
 
--- Migration: Limitar a 2 gallos por frente
+-- Migration: Limitar a 2 gallos por frente POR GALPÓN
 create or replace function public.enforce_frente_max_dos()
 returns trigger as $$
 declare
@@ -14,10 +14,11 @@ begin
 	select count(*) into frente_count
 	from public.gallos
 	where nombre_gallo = new.nombre_gallo
+		and galpon = new.galpon
 		and (tg_op = 'INSERT' or id <> new.id);
 
 	if frente_count >= 2 then
-		raise exception 'El frente ya tiene 2 gallos registrados.';
+		raise exception 'El frente ya tiene 2 gallos registrados en este galpón.';
 	end if;
 
 	return new;

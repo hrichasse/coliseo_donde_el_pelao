@@ -41,10 +41,12 @@ export async function POST(request: Request) {
   }
 
   const frente = String(body.nombre_gallo).trim();
+  const galpon = String(body.galpon).trim();
   const { count: frenteCount, error: frenteError } = await supabase
     .from("gallos")
     .select("id", { count: "exact", head: true })
-    .eq("nombre_gallo", frente);
+    .eq("nombre_gallo", frente)
+    .eq("galpon", galpon);
 
   if (frenteError) {
     return NextResponse.json({ error: frenteError.message }, { status: 500 });
@@ -52,7 +54,7 @@ export async function POST(request: Request) {
 
   if ((frenteCount ?? 0) >= 2) {
     return NextResponse.json(
-      { error: "El frente ya tiene 2 gallos registrados. Usa otro frente." },
+      { error: "El frente ya tiene 2 gallos registrados en este galpón. Usa otro frente." },
       { status: 400 },
     );
   }

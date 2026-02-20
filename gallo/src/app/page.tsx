@@ -260,10 +260,12 @@ export default function Home() {
     const frenteIngresado = form.nombre_gallo.trim().toLowerCase();
     if (frenteIngresado) {
       const frenteCount = roosters.filter(
-        (rooster) => rooster.nombre_gallo.trim().toLowerCase() === frenteIngresado,
+        (rooster) =>
+          rooster.nombre_gallo.trim().toLowerCase() === frenteIngresado &&
+          rooster.galpon === form.galpon,
       ).length;
       if (frenteCount >= 2) {
-        setError("El frente ya tiene 2 gallos registrados. Usa otro frente.");
+        setError("El frente ya tiene 2 gallos registrados en este galpón. Usa otro frente.");
         return;
       }
     }

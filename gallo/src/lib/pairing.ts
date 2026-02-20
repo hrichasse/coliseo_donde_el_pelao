@@ -14,116 +14,201 @@ function librasAGramos(libras: number): number {
   return libras * LIBRA_A_GRAMOS;
 }
 
-export function buildPairsByWeight(roosters: Rooster[]) {
-  // Paso 1: Emparejar TODOS los gallos sin filtros previos
-  const available = [...roosters].sort((a, b) => a.peso_libras - b.peso_libras);
-  const pairs: Array<{
-    galloA: Rooster;
-    galloB: Rooster;
-    diferenciaGramos: number;
-  }> = [];
+type Frente = {
+  key: string;
+  galpon: string;
+  nombre: string;
+  roosters: [Rooster, Rooster];
+};
 
-  while (available.length > 1) {
-    let bestI = -1;
-    let bestJ = -1;
-    let bestDiff = Number.POSITIVE_INFINITY;
+type PairCandidate = {
+  galloA: Rooster;
+  galloB: Rooster;
+  diferenciaGramos: number;
+};
 
-    for (let i = 0; i < available.length; i += 1) {
-      for (let j = i + 1; j < available.length; j += 1) {
-        if (available[i].galpon.trim().toLowerCase() === available[j].galpon.trim().toLowerCase()) {
-          continue;
-        }
+type FrenteDuel = {
+  frenteAKey: string;
+  frenteBKey: string;
+  fights: [PairCandidate, PairCandidate];
+  totalDiff: number;
+};
 
-        const diffLibras = Math.abs(available[i].peso_libras - available[j].peso_libras);
+function canFight(a: Rooster, b: Rooster): boolean {
+  if (a.galpon.trim().toLowerCase() === b.galpon.trim().toLowerCase()) {
+    return false;
+  }
+  const diffLibras = Math.abs(a.peso_libras - b.peso_libras);
+  return diffLibras - MAX_WEIGHT_DIFF_LIBRAS <= WEIGHT_EPSILON;
+}
 
-        // Permitir emparejamiento si la diferencia es <= 0.02 libras
-        // (con tolerancia para evitar errores de punto flotante).
-        if (diffLibras - MAX_WEIGHT_DIFF_LIBRAS > WEIGHT_EPSILON) {
-          continue;
-        }
+function buildFrentes(roosters: Rooster[]) {
+  const groups = new Map<string, Rooster[]>();
 
-        const diff = librasAGramos(diffLibras);
-        if (diff < bestDiff) {
-          bestDiff = diff;
-          bestI = i;
-          bestJ = j;
-        }
-      }
+  for (const rooster of roosters) {
+    const key = `${rooster.galpon}|||${rooster.nombre_gallo}`;
+    if (!groups.has(key)) {
+      groups.set(key, []);
+    }
+    groups.get(key)!.push(rooster);
+  }
+
+  const validFrentes: Frente[] = [];
+  const incompleteFrentes: Rooster[] = [];
+
+  for (const [key, items] of groups) {
+    if (items.length !== 2) {
+      incompleteFrentes.push(...items);
+      continue;
     }
 
-    if (bestI === -1 || bestJ === -1) {
+    const [galpon, nombre] = key.split("|||");
+    validFrentes.push({
+      key,
+      galpon,
+      nombre,
+      roosters: [items[0], items[1]],
+    });
+  }
+
+  return { validFrentes, incompleteFrentes };
+}
+
+function createFight(a: Rooster, b: Rooster): PairCandidate {
+  const diffLibras = Math.abs(a.peso_libras - b.peso_libras);
+  return {
+    galloA: a,
+    galloB: b,
+    diferenciaGramos: Math.round(librasAGramos(diffLibras)),
+  };
+}
+
+function buildDuel(frenteA: Frente, frenteB: Frente): FrenteDuel | null {
+  if (frenteA.galpon.trim().toLowerCase() === frenteB.galpon.trim().toLowerCase()) {
+    return null;
+  }
+
+  const [a1, a2] = frenteA.roosters;
+  const [b1, b2] = frenteB.roosters;
+
+  const opt1Valid = canFight(a1, b1) && canFight(a2, b2);
+  const opt2Valid = canFight(a1, b2) && canFight(a2, b1);
+
+  if (!opt1Valid && !opt2Valid) {
+    return null;
+  }
+
+  const opt1Fights: [PairCandidate, PairCandidate] = [createFight(a1, b1), createFight(a2, b2)];
+  const opt2Fights: [PairCandidate, PairCandidate] = [createFight(a1, b2), createFight(a2, b1)];
+
+  const opt1Total = opt1Fights[0].diferenciaGramos + opt1Fights[1].diferenciaGramos;
+  const opt2Total = opt2Fights[0].diferenciaGramos + opt2Fights[1].diferenciaGramos;
+
+  const fights = !opt2Valid || (opt1Valid && opt1Total <= opt2Total) ? opt1Fights : opt2Fights;
+  const totalDiff = fights[0].diferenciaGramos + fights[1].diferenciaGramos;
+
+  return {
+    frenteAKey: frenteA.key,
+    frenteBKey: frenteB.key,
+    fights,
+    totalDiff,
+  };
+}
+
+function pickBestDuels(duels: FrenteDuel[], frenteKeys: string[]): FrenteDuel[] {
+  const duelMap = new Map<string, FrenteDuel[]>();
+
+  for (const key of frenteKeys) {
+    duelMap.set(key, []);
+  }
+
+  for (const duel of duels) {
+    duelMap.get(duel.frenteAKey)?.push(duel);
+    duelMap.get(duel.frenteBKey)?.push(duel);
+  }
+
+  const used = new Set<string>();
+  const selected: FrenteDuel[] = [];
+
+  while (true) {
+    const availableFrentes = frenteKeys.filter((key) => !used.has(key));
+    if (availableFrentes.length < 2) {
       break;
     }
 
-    const galloA = available[bestI];
-    const galloB = available[bestJ];
-    pairs.push({
-      galloA,
-      galloB,
-      diferenciaGramos: Math.round(bestDiff),
-    });
+    let targetFrente: string | null = null;
+    let targetOptions: FrenteDuel[] = [];
 
-    const removeIndexes = [bestI, bestJ].sort((a, b) => b - a);
-    removeIndexes.forEach((index) => {
-      available.splice(index, 1);
-    });
-  }
+    for (const key of availableFrentes) {
+      const options = (duelMap.get(key) ?? [])
+        .filter((duel) => !used.has(duel.frenteAKey) && !used.has(duel.frenteBKey))
+        .sort((a, b) => a.totalDiff - b.totalDiff);
 
-  // Paso 2: Agrupar por frente (galpon + nombre_gallo)
-  const frenteGroups = new Map<string, Rooster[]>();
-  for (const rooster of roosters) {
-    const frenteKey = `${rooster.galpon}|||${rooster.nombre_gallo}`;
-    if (!frenteGroups.has(frenteKey)) {
-      frenteGroups.set(frenteKey, []);
-    }
-    frenteGroups.get(frenteKey)!.push(rooster);
-  }
-
-  // Paso 3: Identificar gallos emparejados en las parejas actuales
-  const pairedRoosters = new Set<number>();
-  for (const pair of pairs) {
-    pairedRoosters.add(pair.galloA.id);
-    pairedRoosters.add(pair.galloB.id);
-  }
-
-  // Paso 4: Encontrar frentes incompletos: aquellos donde NO ambos gallos están emparejados
-  const incompleteFrenteIds = new Set<number>();
-  for (const [, frenteRoosters] of frenteGroups) {
-    if (frenteRoosters.length === 2) {
-      const bothPaired = frenteRoosters.every((g) => pairedRoosters.has(g.id));
-      if (!bothPaired) {
-        // Frente incompleto: excluir AMBOS gallos
-        frenteRoosters.forEach((g) => {
-          incompleteFrenteIds.add(g.id);
-        });
+      if (options.length === 0) {
+        continue;
       }
-    } else if (frenteRoosters.length === 1) {
-      // Frentes con solo 1 gallo (siempre incompletos)
-      frenteRoosters.forEach((g) => {
-        incompleteFrenteIds.add(g.id);
-      });
+
+      if (!targetFrente || options.length < targetOptions.length) {
+        targetFrente = key;
+        targetOptions = options;
+      }
+    }
+
+    if (!targetFrente || targetOptions.length === 0) {
+      break;
+    }
+
+    const chosen = targetOptions[0];
+    selected.push(chosen);
+    used.add(chosen.frenteAKey);
+    used.add(chosen.frenteBKey);
+  }
+
+  return selected;
+}
+
+export function buildPairsByWeight(roosters: Rooster[]) {
+  const { validFrentes, incompleteFrentes: registrationIncomplete } = buildFrentes(roosters);
+
+  const duels: FrenteDuel[] = [];
+  for (let i = 0; i < validFrentes.length; i += 1) {
+    for (let j = i + 1; j < validFrentes.length; j += 1) {
+      const duel = buildDuel(validFrentes[i], validFrentes[j]);
+      if (duel) {
+        duels.push(duel);
+      }
     }
   }
 
-  // Paso 5: Filtrar las parejas: excluir aquellas donde alguno está en frente incompleto
-  const validPairs = pairs.filter(
-    (pair) => !incompleteFrenteIds.has(pair.galloA.id) && !incompleteFrenteIds.has(pair.galloB.id),
+  const selectedDuels = pickBestDuels(
+    duels,
+    validFrentes.map((f) => f.key),
   );
 
-  // Paso 6: Calcular sobrantes = gallos no emparejados en validPairs + gallos de frentes incompletos
-  const validPairedIds = new Set<number>();
-  validPairs.forEach((pair) => {
-    validPairedIds.add(pair.galloA.id);
-    validPairedIds.add(pair.galloB.id);
-  });
+  const pairs = selectedDuels.flatMap((duel) => duel.fights);
 
-  const sobrantes = roosters.filter((r) => !validPairedIds.has(r.id));
-  const incompleteFrentes = Array.from(incompleteFrenteIds)
-    .map((id) => roosters.find((r) => r.id === id)!)
-    .filter(Boolean);
+  const usedFrentes = new Set<string>();
+  for (const duel of selectedDuels) {
+    usedFrentes.add(duel.frenteAKey);
+    usedFrentes.add(duel.frenteBKey);
+  }
+
+  const unmatchedCompleteFrentes = validFrentes
+    .filter((frente) => !usedFrentes.has(frente.key))
+    .flatMap((frente) => frente.roosters);
+
+  const incompleteFrentes = [...registrationIncomplete, ...unmatchedCompleteFrentes];
+
+  const pairedIds = new Set<number>();
+  for (const pair of pairs) {
+    pairedIds.add(pair.galloA.id);
+    pairedIds.add(pair.galloB.id);
+  }
+
+  const sobrantes = roosters.filter((rooster) => !pairedIds.has(rooster.id));
 
   return {
-    pairs: validPairs,
+    pairs,
     sobrantes,
     incompleteFrentes,
   };

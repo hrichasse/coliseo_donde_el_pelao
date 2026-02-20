@@ -29,6 +29,7 @@ create table public.gallos (
   color_gallo text not null,
   color_pata text not null,
   peso_libras numeric(8,2) not null check (peso_libras > 0),
+  plaqueo integer not null unique,
   created_at timestamptz not null default now()
 );
 

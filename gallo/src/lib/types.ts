@@ -7,6 +7,7 @@ export type Rooster = {
   color_gallo: string;
   color_pata: string;
   peso_libras: number;
+  plaqueo?: number;
 };
 
 export type Galpon = {

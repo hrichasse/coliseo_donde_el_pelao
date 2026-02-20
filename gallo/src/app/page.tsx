@@ -60,6 +60,7 @@ type FormState = {
   color_gallo: string;
   color_pata: string;
   peso_libras: string;
+  plaqueo: string;
 };
 
 const INITIAL_FORM: FormState = {
@@ -69,6 +70,7 @@ const INITIAL_FORM: FormState = {
   color_gallo: "",
   color_pata: "",
   peso_libras: "",
+  plaqueo: "",
 };
 
 type SectionKey = "gallos" | "galpones" | "sorteo" | "reporte";
@@ -111,6 +113,7 @@ export default function Home() {
   const [error, setError] = useState<string>("");
   const [reportRows, setReportRows] = useState<ReportRow[]>([]);
   const [resultByMatch, setResultByMatch] = useState<Record<number, { ganadorId: string; segundos: string }>>({});
+  const [nextPlaqueo, setNextPlaqueo] = useState<number>(1000);
 
   async function loadRoosters() {
     setLoading(true);
@@ -158,6 +161,19 @@ export default function Home() {
       total_1v1_posibles: Math.floor(roosters.length / 2),
     });
   }, [pairs, roosters]);
+
+  // Calcular el siguiente plaqueo disponible cuando cambien los roosters
+  useEffect(() => {
+    if (roosters.length === 0) {
+      setNextPlaqueo(1000);
+      setForm((prev) => ({ ...prev, plaqueo: "1000" }));
+    } else {
+      const maxPlaqueo = Math.max(...roosters.map((r) => (r.plaqueo ?? 999)));
+      const nextNum = Math.max(maxPlaqueo + 1, 1000);
+      setNextPlaqueo(nextNum);
+      setForm((prev) => ({ ...prev, plaqueo: String(nextNum) }));
+    }
+  }, [roosters]);
 
   useEffect(() => {
     if (!message) return;
@@ -278,7 +294,11 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...form,
+          nombre_gallo: form.nombre_gallo,
+          galpon: form.galpon,
+          propietario: form.propietario,
+          color_gallo: form.color_gallo,
+          color_pata: form.color_pata,
           peso_libras: Number(form.peso_libras),
         }),
       });
@@ -949,6 +969,12 @@ export default function Home() {
                   className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-slate-100 outline-none ring-cyan-400/50 placeholder:text-slate-500 focus:ring"
                   required
                 />
+                <input
+                  value={form.plaqueo}
+                  readOnly
+                  placeholder="Plaqueo (automático)"
+                  className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-slate-300 outline-none cursor-not-allowed"
+                />
                 
                 <div className="col-span-full">
                   <label className="block mb-2 text-sm font-medium text-slate-300">Peso (libras)</label>
@@ -1040,6 +1066,7 @@ export default function Home() {
                       <th className="border border-slate-700 bg-slate-800 p-2">Propietario</th>
                       <th className="border border-slate-700 bg-slate-800 p-2">Color gallo</th>
                       <th className="border border-slate-700 bg-slate-800 p-2">Color pata</th>
+                      <th className="border border-slate-700 bg-slate-800 p-2">Plaqueo</th>
                       <th className="border border-slate-700 bg-slate-800 p-2">Peso (lb)</th>
                       <th className="border border-slate-700 bg-slate-800 p-2">Acciones</th>
                     </tr>
@@ -1053,6 +1080,7 @@ export default function Home() {
                         <td className="border border-slate-700 p-2">{rooster.propietario}</td>
                         <td className="border border-slate-700 p-2">{rooster.color_gallo}</td>
                         <td className="border border-slate-700 p-2">{rooster.color_pata}</td>
+                        <td className="border border-slate-700 p-2 text-center">{rooster.plaqueo}</td>
                         <td className="border border-slate-700 p-2 text-right">{rooster.peso_libras.toFixed(2)}</td>
                         <td className="border border-slate-700 p-2 text-center">
                           <button
@@ -1068,7 +1096,7 @@ export default function Home() {
                     ))}
                     {roosters.length === 0 && (
                       <tr>
-                        <td colSpan={8} className="border border-slate-700 p-3 text-center text-slate-400">
+                        <td colSpan={9} className="border border-slate-700 p-3 text-center text-slate-400">
                           No hay gallos registrados.
                         </td>
                       </tr>

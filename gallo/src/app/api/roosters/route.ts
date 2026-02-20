@@ -59,6 +59,20 @@ export async function POST(request: Request) {
     );
   }
 
+  // Calcular el siguiente plaqueo disponible
+  const { data: allRoosters, error: roostersError } = await supabase
+    .from("gallos")
+    .select("plaqueo")
+    .order("plaqueo", { ascending: false })
+    .limit(1);
+
+  if (roostersError) {
+    return NextResponse.json({ error: roostersError.message }, { status: 500 });
+  }
+
+  const maxPlaqueo = (allRoosters && allRoosters.length > 0) ? allRoosters[0].plaqueo : 999;
+  const nextPlaqueo = maxPlaqueo + 1;
+
   const { data, error } = await supabase
     .from("gallos")
     .insert([
@@ -69,6 +83,7 @@ export async function POST(request: Request) {
         color_gallo: String(body.color_gallo).trim(),
         color_pata: String(body.color_pata).trim(),
         peso_libras: peso,
+        plaqueo: nextPlaqueo,
       },
     ])
     .select("*")

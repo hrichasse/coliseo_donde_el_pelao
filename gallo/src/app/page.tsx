@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, KeyboardEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -277,11 +277,12 @@ export default function Home() {
       return;
     }
 
-    const frenteIngresado = form.nombre_gallo.trim().toLowerCase();
+    const normalizeFrente = (value: string) => value.trim().replace(/\s+/g, " ").toUpperCase();
+    const frenteIngresado = normalizeFrente(form.nombre_gallo);
     if (frenteIngresado) {
       const frenteCount = roosters.filter(
         (rooster) =>
-          rooster.nombre_gallo.trim().toLowerCase() === frenteIngresado &&
+          normalizeFrente(rooster.nombre_gallo) === frenteIngresado &&
           rooster.galpon === form.galpon,
       ).length;
       if (frenteCount >= 2) {
@@ -298,7 +299,7 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          nombre_gallo: form.nombre_gallo,
+          nombre_gallo: frenteIngresado,
           galpon: form.galpon,
           propietario: form.propietario,
           color_gallo: form.color_gallo,
@@ -576,11 +577,13 @@ export default function Home() {
     }
 
     const doc = new jsPDF({ orientation: "landscape" });
+    doc.setTextColor(0, 0, 0);
     doc.setFontSize(16);
     doc.text("Acta de Emparejamientos 1v1", 14, 14);
 
     autoTable(doc, {
       startY: 20,
+      rowPageBreak: "avoid",
       head: [["#", "Frente A", "Galpón A", "Propietario A", "Peso A", "Frente B", "Galpón B", "Propietario B", "Peso B", "Dif (g)", "Tiempo (manual)", "Puntaje"]],
       body: pairs.map((pair, index) => [
         String(index + 1),
@@ -596,7 +599,25 @@ export default function Home() {
         "",
         "",
       ]),
-      styles: { fontSize: 8 },
+      theme: "grid",
+      styles: {
+        fontSize: 10,
+        cellPadding: 2.3,
+        lineColor: [70, 70, 70],
+        lineWidth: 0.2,
+        textColor: [0, 0, 0],
+        fillColor: [255, 255, 255],
+      },
+      headStyles: {
+        fillColor: [37, 99, 235],
+        textColor: [255, 255, 255],
+        lineColor: [0, 0, 0],
+        lineWidth: 0.25,
+        fontStyle: "bold",
+      },
+      bodyStyles: {
+        fillColor: [255, 255, 255],
+      },
     });
 
     doc.save("emparejamientos-1v1.pdf");
@@ -717,6 +738,20 @@ export default function Home() {
     return `${minutos}:${segundos.toString().padStart(2, "0")}`;
   }
 
+  function onFrenteKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.ctrlKey || event.metaKey || event.altKey) {
+      return;
+    }
+
+    if (event.key.length !== 1) {
+      return;
+    }
+
+    if (/[a-záéíóúñ]/.test(event.key)) {
+      event.preventDefault();
+    }
+  }
+
   function onDownloadReportPdf() {
     if (reportRows.length === 0) {
       setError("No hay datos en el reporte para exportar");
@@ -724,11 +759,13 @@ export default function Home() {
     }
 
     const doc = new jsPDF({ orientation: "landscape" });
+    doc.setTextColor(0, 0, 0);
     doc.setFontSize(16);
     doc.text("Ranking del Torneo - Por Puntos", 14, 14);
 
     autoTable(doc, {
       startY: 20,
+      rowPageBreak: "avoid",
       head: [["Pos.", "Galpón", "Plaqueo", "Frente", "Propietario", "Puntos", "Peleas", "Tiempo Total (MM:SS)"]],
       body: reportRows.map((row) => [
         String(row.posicion),
@@ -740,7 +777,25 @@ export default function Home() {
         String(row.peleas),
         convertirSegundosAMMSS(row.tiempo_total_segundos),
       ]),
-      styles: { fontSize: 9 },
+      theme: "grid",
+      styles: {
+        fontSize: 10,
+        cellPadding: 2.4,
+        lineColor: [70, 70, 70],
+        lineWidth: 0.2,
+        textColor: [0, 0, 0],
+        fillColor: [255, 255, 255],
+      },
+      headStyles: {
+        fillColor: [37, 99, 235],
+        textColor: [255, 255, 255],
+        lineColor: [0, 0, 0],
+        lineWidth: 0.25,
+        fontStyle: "bold",
+      },
+      bodyStyles: {
+        fillColor: [255, 255, 255],
+      },
     });
 
     doc.save("ranking-torneo-puntos.pdf");
@@ -762,6 +817,7 @@ export default function Home() {
 
     autoTable(doc, {
       startY: 20,
+      rowPageBreak: "avoid",
       head: [["Pos.", "Galpón", "Plaqueo", "Frente", "Propietario", "Puntos", "Peleas", "Mejor Tiempo Pollón (MM:SS)"]],
       body: pollones.map((row) => [
         String(row.posicion),
@@ -930,11 +986,19 @@ export default function Home() {
               <form onSubmit={onSubmit} className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
                 <input
                   value={form.nombre_gallo}
-                  onChange={(e) => setForm((prev) => ({ ...prev, nombre_gallo: e.target.value }))}
+                  onKeyDown={onFrenteKeyDown}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      nombre_gallo: e.target.value.toUpperCase().replace(/\s+/g, " "),
+                    }))
+                  }
                   placeholder="Frente (max 2)"
+                  title="Solo se permite escribir en MAYÚSCULAS"
                   className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-slate-100 outline-none ring-cyan-400/50 placeholder:text-slate-500 focus:ring"
                   required
                 />
+                <p className="text-xs text-amber-300 md:col-span-2 lg:col-span-1">Solo MAYÚSCULAS (bloquea minúsculas)</p>
                 <div className="col-span-full">
                   <div className="flex gap-2 mb-3">
                     <select

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 
+function normalizeFrente(value: string): string {
+  return String(value).trim().replace(/\s+/g, " ").toUpperCase();
+}
+
 export async function GET() {
   const supabase = getSupabase();
   const { data, error } = await supabase
@@ -40,19 +44,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "peso_libras debe ser un número mayor a 0" }, { status: 400 });
   }
 
-  const frente = String(body.nombre_gallo).trim();
+  const frente = normalizeFrente(body.nombre_gallo);
   const galpon = String(body.galpon).trim();
-  const { count: frenteCount, error: frenteError } = await supabase
+
+  const { data: frentesEnGalpon, error: frenteError } = await supabase
     .from("gallos")
-    .select("id", { count: "exact", head: true })
-    .eq("nombre_gallo", frente)
+    .select("id, nombre_gallo")
     .eq("galpon", galpon);
 
   if (frenteError) {
     return NextResponse.json({ error: frenteError.message }, { status: 500 });
   }
 
-  if ((frenteCount ?? 0) >= 2) {
+  const frenteCount = (frentesEnGalpon ?? []).filter(
+    (item) => normalizeFrente(item.nombre_gallo) === frente,
+  ).length;
+
+  if (frenteCount >= 2) {
     return NextResponse.json(
       { error: "El frente ya tiene 2 gallos registrados en este galpón. Usa otro frente." },
       { status: 400 },

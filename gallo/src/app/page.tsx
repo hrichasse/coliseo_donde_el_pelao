@@ -1298,8 +1298,8 @@ export default function Home() {
                           >
                             <option value="">Seleccione ganador</option>
                             <option value="empate">Empate</option>
-                            <option value={pair.gallo_a_id}>{pair.gallo_a_nombre}</option>
-                            <option value={pair.gallo_b_id}>{pair.gallo_b_nombre}</option>
+                            <option value={pair.gallo_a_id}>{pair.galpon_a}</option>
+                            <option value={pair.gallo_b_id}>{pair.galpon_b}</option>
                           </select>
                         </div>
 

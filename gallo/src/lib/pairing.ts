@@ -14,38 +14,9 @@ function librasAGramos(libras: number): number {
   return libras * LIBRA_A_GRAMOS;
 }
 
-function filterCompleteFrente(roosters: Rooster[]): { validRoosters: Rooster[]; incompleteFrentes: Rooster[] } {
-  // Agrupar por frente (galpon + nombre_gallo)
-  const frenteGroups = new Map<string, Rooster[]>();
-  
-  for (const rooster of roosters) {
-    const frenteKey = `${rooster.galpon}|||${rooster.nombre_gallo}`;
-    if (!frenteGroups.has(frenteKey)) {
-      frenteGroups.set(frenteKey, []);
-    }
-    frenteGroups.get(frenteKey)!.push(rooster);
-  }
-  
-  const validRoosters: Rooster[] = [];
-  const incompleteFrentes: Rooster[] = [];
-  
-  // Solo incluir gallos de frentes que tienen exactamente 2 gallos
-  for (const [, frenteRoosters] of frenteGroups) {
-    if (frenteRoosters.length === 2) {
-      validRoosters.push(...frenteRoosters);
-    } else {
-      incompleteFrentes.push(...frenteRoosters);
-    }
-  }
-  
-  return { validRoosters, incompleteFrentes };
-}
-
 export function buildPairsByWeight(roosters: Rooster[]) {
-  // Filtrar solo frentes completos (con 2 gallos)
-  const { validRoosters, incompleteFrentes } = filterCompleteFrente(roosters);
-  
-  const available = [...validRoosters].sort((a, b) => a.peso_libras - b.peso_libras);
+  // Paso 1: Emparejar TODOS los gallos sin filtros previos
+  const available = [...roosters].sort((a, b) => a.peso_libras - b.peso_libras);
   const pairs: Array<{
     galloA: Rooster;
     galloB: Rooster;
@@ -98,11 +69,61 @@ export function buildPairsByWeight(roosters: Rooster[]) {
     });
   }
 
-  // Combinar sobrantes del emparejamiento con frentes incompletos
-  const sobrantes = [...available, ...incompleteFrentes];
+  // Paso 2: Agrupar por frente (galpon + nombre_gallo)
+  const frenteGroups = new Map<string, Rooster[]>();
+  for (const rooster of roosters) {
+    const frenteKey = `${rooster.galpon}|||${rooster.nombre_gallo}`;
+    if (!frenteGroups.has(frenteKey)) {
+      frenteGroups.set(frenteKey, []);
+    }
+    frenteGroups.get(frenteKey)!.push(rooster);
+  }
+
+  // Paso 3: Identificar gallos emparejados en las parejas actuales
+  const pairedRoosters = new Set<number>();
+  for (const pair of pairs) {
+    pairedRoosters.add(pair.galloA.id);
+    pairedRoosters.add(pair.galloB.id);
+  }
+
+  // Paso 4: Encontrar frentes incompletos: aquellos donde NO ambos gallos están emparejados
+  const incompleteFrenteIds = new Set<number>();
+  for (const [, frenteRoosters] of frenteGroups) {
+    if (frenteRoosters.length === 2) {
+      const bothPaired = frenteRoosters.every((g) => pairedRoosters.has(g.id));
+      if (!bothPaired) {
+        // Frente incompleto: excluir AMBOS gallos
+        frenteRoosters.forEach((g) => {
+          incompleteFrenteIds.add(g.id);
+        });
+      }
+    } else if (frenteRoosters.length === 1) {
+      // Frentes con solo 1 gallo (siempre incompletos)
+      frenteRoosters.forEach((g) => {
+        incompleteFrenteIds.add(g.id);
+      });
+    }
+  }
+
+  // Paso 5: Filtrar las parejas: excluir aquellas donde alguno está en frente incompleto
+  const validPairs = pairs.filter(
+    (pair) => !incompleteFrenteIds.has(pair.galloA.id) && !incompleteFrenteIds.has(pair.galloB.id),
+  );
+
+  // Paso 6: Calcular sobrantes = gallos no emparejados en validPairs + gallos de frentes incompletos
+  const validPairedIds = new Set<number>();
+  validPairs.forEach((pair) => {
+    validPairedIds.add(pair.galloA.id);
+    validPairedIds.add(pair.galloB.id);
+  });
+
+  const sobrantes = roosters.filter((r) => !validPairedIds.has(r.id));
+  const incompleteFrentes = Array.from(incompleteFrenteIds)
+    .map((id) => roosters.find((r) => r.id === id)!)
+    .filter(Boolean);
 
   return {
-    pairs,
+    pairs: validPairs,
     sobrantes,
     incompleteFrentes,
   };

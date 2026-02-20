@@ -159,6 +159,26 @@ export default function Home() {
     });
   }, [pairs, roosters]);
 
+  useEffect(() => {
+    if (!message) return;
+
+    const timer = window.setTimeout(() => {
+      setMessage("");
+    }, 4000);
+
+    return () => window.clearTimeout(timer);
+  }, [message]);
+
+  useEffect(() => {
+    if (!error) return;
+
+    const timer = window.setTimeout(() => {
+      setError("");
+    }, 4000);
+
+    return () => window.clearTimeout(timer);
+  }, [error]);
+
   // Rellenar propietario automáticamente cuando cambia el galpón seleccionado
   useEffect(() => {
     if (form.galpon && galpones.length > 0) {

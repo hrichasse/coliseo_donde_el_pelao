@@ -96,6 +96,7 @@ export default function Home() {
   const [galpones, setGalpones] = useState<Galpon[]>([]);
   const [pairs, setPairs] = useState<DrawPair[]>([]);
   const [sobrantes, setSobrantes] = useState<Rooster[]>([]);
+  const [incompleteFrentes, setIncompleteFrentes] = useState<Rooster[]>([]);
   const [dbMatchesCount, setDbMatchesCount] = useState(0);
   const [activeSection, setActiveSection] = useState<SectionKey>("gallos");
   const [galponNuevo, setGalponNuevo] = useState("");
@@ -144,6 +145,7 @@ export default function Home() {
   useEffect(() => {
     if (pairs.length === 0) {
       setSobrantes([]);
+      setIncompleteFrentes([]);
       setDrawSummary(null);
       return;
     }
@@ -342,6 +344,7 @@ export default function Home() {
 
       setPairs(payload.data ?? []);
       setSobrantes(payload.sobrantes ?? []);
+      setIncompleteFrentes(payload.incompleteFrentes ?? []);
       setResultByMatch(
         Object.fromEntries(
           (payload.data ?? []).map((pair: DrawPair) => [
@@ -1404,9 +1407,44 @@ export default function Home() {
                 <div className="mt-6 rounded-xl border border-amber-400/30 bg-amber-500/10 p-4">
                   <h3 className="mb-3 font-semibold text-amber-200">Gallos sin pareja ({sobrantes.length})</h3>
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                    {sobrantes.map((gallo) => (
-                      <div key={gallo.id} className="rounded-lg border border-amber-400/30 bg-slate-800/40 p-3">
-                        <p className="mb-1 text-sm font-semibold text-amber-300">{gallo.nombre_gallo}</p>
+                    {sobrantes.map((gallo) => {
+                      const esIncompleteFrente = incompleteFrentes.some((g) => g.id === gallo.id);
+                      return (
+                        <div
+                          key={gallo.id}
+                          className={`rounded-lg border p-3 ${
+                            esIncompleteFrente
+                              ? "border-red-400/40 bg-red-500/5"
+                              : "border-amber-400/30 bg-slate-800/40"
+                          }`}
+                        >
+                          <div className="mb-2 flex items-start justify-between">
+                            <p className="text-sm font-semibold text-amber-300">{gallo.nombre_gallo}</p>
+                            {esIncompleteFrente && (
+                              <span className="rounded bg-red-600/40 px-2 py-1 text-xs font-semibold text-red-300">
+                                Frente incompleto
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-400">Galpón: {gallo.galpon}</p>
+                          <p className="text-xs text-slate-400">Propietario: {gallo.propietario}</p>
+                          <p className="text-xs text-slate-400">Peso: {gallo.peso_libras.toFixed(2)} lb</p>
+                          <p className="text-xs text-slate-400">Color: {gallo.color_gallo} / Pata: {gallo.color_pata}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {incompleteFrentes.length > 0 && (
+                <div className="mt-6 rounded-xl border border-red-400/30 bg-red-500/10 p-4">
+                  <h3 className="mb-3 font-semibold text-red-200">Frentes incompletos - Excluidos del sorteo ({incompleteFrentes.length})</h3>
+                  <p className="mb-3 text-xs text-red-300">Estos gallos fueron excluidos porque su frente no tiene ambos gallos emparejados</p>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    {incompleteFrentes.map((gallo) => (
+                      <div key={gallo.id} className="rounded-lg border border-red-400/30 bg-slate-800/40 p-3 opacity-75">
+                        <p className="mb-1 text-sm font-semibold text-red-300">❌ {gallo.nombre_gallo}</p>
                         <p className="text-xs text-slate-400">Galpón: {gallo.galpon}</p>
                         <p className="text-xs text-slate-400">Propietario: {gallo.propietario}</p>
                         <p className="text-xs text-slate-400">Peso: {gallo.peso_libras.toFixed(2)} lb</p>

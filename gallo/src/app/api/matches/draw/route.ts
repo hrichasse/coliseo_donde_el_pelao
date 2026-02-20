@@ -24,7 +24,7 @@ export async function POST() {
     return NextResponse.json({ error: "Debe haber al menos 2 gallos para sortear" }, { status: 400 });
   }
 
-  const { pairs, sobrantes } = buildPairsByWeight(typedRoosters);
+  const { pairs, sobrantes, incompleteFrentes } = buildPairsByWeight(typedRoosters);
 
   if (pairs.length === 0) {
     return NextResponse.json(
@@ -77,6 +77,7 @@ export async function POST() {
   return NextResponse.json({
     data: normalized,
     sobrantes,
+    incompleteFrentes,
     resumen: {
       total_inscritos: typedRoosters.length,
       total_1v1: normalized.length,

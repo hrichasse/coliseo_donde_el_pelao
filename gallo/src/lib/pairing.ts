@@ -14,8 +14,38 @@ function librasAGramos(libras: number): number {
   return libras * LIBRA_A_GRAMOS;
 }
 
+function filterCompleteFrente(roosters: Rooster[]): { validRoosters: Rooster[]; incompleteFrentes: Rooster[] } {
+  // Agrupar por frente (galpon + nombre_gallo)
+  const frenteGroups = new Map<string, Rooster[]>();
+  
+  for (const rooster of roosters) {
+    const frenteKey = `${rooster.galpon}|||${rooster.nombre_gallo}`;
+    if (!frenteGroups.has(frenteKey)) {
+      frenteGroups.set(frenteKey, []);
+    }
+    frenteGroups.get(frenteKey)!.push(rooster);
+  }
+  
+  const validRoosters: Rooster[] = [];
+  const incompleteFrentes: Rooster[] = [];
+  
+  // Solo incluir gallos de frentes que tienen exactamente 2 gallos
+  for (const [, frenteRoosters] of frenteGroups) {
+    if (frenteRoosters.length === 2) {
+      validRoosters.push(...frenteRoosters);
+    } else {
+      incompleteFrentes.push(...frenteRoosters);
+    }
+  }
+  
+  return { validRoosters, incompleteFrentes };
+}
+
 export function buildPairsByWeight(roosters: Rooster[]) {
-  const available = [...roosters].sort((a, b) => a.peso_libras - b.peso_libras);
+  // Filtrar solo frentes completos (con 2 gallos)
+  const { validRoosters, incompleteFrentes } = filterCompleteFrente(roosters);
+  
+  const available = [...validRoosters].sort((a, b) => a.peso_libras - b.peso_libras);
   const pairs: Array<{
     galloA: Rooster;
     galloB: Rooster;
@@ -68,8 +98,12 @@ export function buildPairsByWeight(roosters: Rooster[]) {
     });
   }
 
+  // Combinar sobrantes del emparejamiento con frentes incompletos
+  const sobrantes = [...available, ...incompleteFrentes];
+
   return {
     pairs,
-    sobrantes: available,
+    sobrantes,
+    incompleteFrentes,
   };
 }

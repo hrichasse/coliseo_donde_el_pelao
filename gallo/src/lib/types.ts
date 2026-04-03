@@ -27,6 +27,8 @@ export type MatchPair = {
   galpon_b: string;
   propietario_a: string;
   propietario_b: string;
+  color_a: string;
+  color_b: string;
   peso_a_libras: number;
   peso_b_libras: number;
   diferencia_gramos: number;

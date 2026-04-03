@@ -12,28 +12,21 @@ import { useAuth } from "@/hooks/useAuth";
 // Verificar autenticación en el cliente
 function useProtected() {
   const router = useRouter();
-  const [authorized, setAuthorized] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const isClient = typeof window !== "undefined";
+  const hasToken = isClient ? Boolean(sessionStorage.getItem("auth_token")) : false;
 
   useEffect(() => {
-    // Solo ejecutar en el cliente
-    if (typeof window === "undefined") return;
+    if (!isClient) return;
 
-    // Verificar token en sessionStorage
-    const token = sessionStorage.getItem("auth_token");
-
-    if (!token) {
-      console.log("No token found, redirecting to login");
-      router.push("/login");
-      return;
+    if (!hasToken) {
+      router.replace("/login");
     }
+  }, [hasToken, isClient, router]);
 
-    // Token existe, está autorizado
-    setAuthorized(true);
-    setLoading(false);
-  }, [router]);
-
-  return { authorized, loading };
+  return {
+    authorized: hasToken,
+    loading: !isClient,
+  };
 }
 
 type DrawPair = {
@@ -46,6 +39,8 @@ type DrawPair = {
   galpon_b: string;
   propietario_a: string;
   propietario_b: string;
+  color_a: string;
+  color_b: string;
   peso_a_libras: number;
   peso_b_libras: number;
   diferencia_gramos: number;
@@ -117,6 +112,10 @@ export default function Home() {
   const [reportRows, setReportRows] = useState<ReportRow[]>([]);
   const [resultByMatch, setResultByMatch] = useState<Record<number, { ganadorId: string; segundos: string }>>({});
   const [nextPlaqueo, setNextPlaqueo] = useState<number>(1000);
+  const [manualGalloAId, setManualGalloAId] = useState<string>("");
+  const [manualGalloBId, setManualGalloBId] = useState<string>("");
+
+  const normalizeFrente = (value: string) => value.trim().replace(/\s+/g, " ").toUpperCase();
 
   async function loadRoosters() {
     setLoading(true);
@@ -346,6 +345,8 @@ export default function Home() {
       setPairs(payload.data ?? []);
       setSobrantes(payload.sobrantes ?? []);
       setIncompleteFrentes(payload.incompleteFrentes ?? []);
+      setManualGalloAId("");
+      setManualGalloBId("");
       setResultByMatch(
         Object.fromEntries(
           (payload.data ?? []).map((pair: DrawPair) => [
@@ -453,7 +454,77 @@ export default function Home() {
       setResultByMatch({});
       setDrawSummary(null);
       setDbMatchesCount(0);
+      setManualGalloAId("");
+      setManualGalloBId("");
       setMessage("Emparejamientos limpiados correctamente");
+      await loadReport();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error inesperado");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onCreateManualPair() {
+    const galloAId = Number(manualGalloAId);
+    const galloBId = Number(manualGalloBId);
+
+    if (!galloAId || !galloBId) {
+      setError("Debes seleccionar dos gallos para emparejar manualmente");
+      return;
+    }
+
+    if (galloAId === galloBId) {
+      setError("Debes seleccionar dos gallos distintos");
+      return;
+    }
+
+    const galloA = roosters.find((rooster) => rooster.id === galloAId);
+    const galloB = roosters.find((rooster) => rooster.id === galloBId);
+
+    if (!galloA || !galloB) {
+      setError("No se pudieron encontrar los gallos seleccionados");
+      return;
+    }
+
+    if (galloA.galpon === galloB.galpon) {
+      setError("No se permite emparejar gallos del mismo galpón");
+      return;
+    }
+
+    if (normalizeFrente(galloA.nombre_gallo) === normalizeFrente(galloB.nombre_gallo)) {
+      setError("No se permite emparejar gallos del mismo frente");
+      return;
+    }
+
+    setError("");
+    setMessage("");
+    setLoading(true);
+    try {
+      const response = await fetch("/api/matches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gallo_a_id: galloAId, gallo_b_id: galloBId }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error ?? "No se pudo crear el emparejamiento manual");
+      }
+
+      setPairs((prev) => [...prev, payload.data]);
+      setDbMatchesCount((prev) => prev + 1);
+      setResultByMatch((prev) => ({
+        ...prev,
+        [payload.data.id]: {
+          ganadorId: payload.data.ganador_id ? String(payload.data.ganador_id) : "",
+          segundos:
+            payload.data.duracion_segundos != null ? convertirSegundosAMMSS(payload.data.duracion_segundos) : "",
+        },
+      }));
+      setManualGalloAId("");
+      setManualGalloBId("");
+      setIncompleteFrentes((prev) => prev.filter((rooster) => rooster.id !== galloAId && rooster.id !== galloBId));
+      setMessage("Emparejamiento manual agregado correctamente");
       await loadReport();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado");
@@ -584,16 +655,18 @@ export default function Home() {
     autoTable(doc, {
       startY: 20,
       rowPageBreak: "avoid",
-      head: [["#", "Frente A", "Galpón A", "Propietario A", "Peso A", "Frente B", "Galpón B", "Propietario B", "Peso B", "Dif (g)", "Tiempo (manual)", "Puntaje"]],
+      head: [["#", "Frente A", "Galpón A", "Propietario A", "Color A", "Peso A", "Frente B", "Galpón B", "Propietario B", "Color B", "Peso B", "Dif (g)", "Tiempo (manual)", "Puntaje"]],
       body: pairs.map((pair, index) => [
         String(index + 1),
         pair.gallo_a_nombre,
         pair.galpon_a,
         pair.propietario_a,
+        pair.color_a,
         pair.peso_a_libras.toFixed(2),
         pair.gallo_b_nombre,
         pair.galpon_b,
         pair.propietario_b,
+        pair.color_b,
         pair.peso_b_libras.toFixed(2),
         String(pair.diferencia_gramos),
         "",
@@ -629,15 +702,57 @@ export default function Home() {
       galloA: pair.gallo_a_nombre,
       galponA: pair.galpon_a,
       propietarioA: pair.propietario_a,
+      colorA: pair.color_a,
       pesoA: pair.peso_a_libras.toFixed(2),
       galloB: pair.gallo_b_nombre,
       galponB: pair.galpon_b,
       propietarioB: pair.propietario_b,
+      colorB: pair.color_b,
       pesoB: pair.peso_b_libras.toFixed(2),
       diferencia: String(pair.diferencia_gramos),
     }));
     return `/print?pairs=${encodeURIComponent(JSON.stringify(printable))}`;
   }, [pairs]);
+
+  const manualCandidates = useMemo(() => {
+    return sobrantes.slice().sort((a, b) => a.id - b.id);
+  }, [sobrantes]);
+
+  const manualSelectedA = useMemo(() => {
+    const selectedId = Number(manualGalloAId);
+    if (!selectedId) return null;
+    return manualCandidates.find((rooster) => rooster.id === selectedId) ?? null;
+  }, [manualCandidates, manualGalloAId]);
+
+  const manualCandidatesA = useMemo(() => {
+    const selectedBId = Number(manualGalloBId);
+    return manualCandidates.filter((rooster) => rooster.id !== selectedBId);
+  }, [manualCandidates, manualGalloBId]);
+
+  const manualCandidatesB = useMemo(() => {
+    const selectedAId = Number(manualGalloAId);
+    if (!selectedAId) {
+      return manualCandidates;
+    }
+
+    return manualCandidates.filter((rooster) => {
+      if (rooster.id === selectedAId) return false;
+      if (!manualSelectedA) return true;
+      if (rooster.galpon === manualSelectedA.galpon) return false;
+      if (normalizeFrente(rooster.nombre_gallo) === normalizeFrente(manualSelectedA.nombre_gallo)) return false;
+      return true;
+    });
+  }, [manualCandidates, manualGalloAId, manualSelectedA]);
+
+  useEffect(() => {
+    if (!manualGalloBId) return;
+
+    const selectedBId = Number(manualGalloBId);
+    const stillValid = manualCandidatesB.some((rooster) => rooster.id === selectedBId);
+    if (!stillValid) {
+      setManualGalloBId("");
+    }
+  }, [manualCandidatesB, manualGalloBId]);
 
   async function onSaveResult(pair: DrawPair) {
     const current = resultByMatch[pair.id];
@@ -1369,6 +1484,7 @@ export default function Home() {
                           <p className="text-base font-semibold">{pair.gallo_a_nombre}</p>
                           <p className="text-sm text-slate-300">Galpón: {pair.galpon_a}</p>
                           <p className="text-sm text-slate-300">Propietario: {pair.propietario_a}</p>
+                          <p className="text-sm text-slate-300">Color: {pair.color_a}</p>
                           <p className="text-sm text-slate-300">Peso: {pair.peso_a_libras.toFixed(2)} lb</p>
                         </div>
 
@@ -1377,6 +1493,7 @@ export default function Home() {
                           <p className="text-base font-semibold">{pair.gallo_b_nombre}</p>
                           <p className="text-sm text-slate-300">Galpón: {pair.galpon_b}</p>
                           <p className="text-sm text-slate-300">Propietario: {pair.propietario_b}</p>
+                          <p className="text-sm text-slate-300">Color: {pair.color_b}</p>
                           <p className="text-sm text-slate-300">Peso: {pair.peso_b_libras.toFixed(2)} lb</p>
                         </div>
                       </div>
@@ -1467,40 +1584,6 @@ export default function Home() {
                 </div>
               )}
 
-              {sobrantes.length > 0 && (
-                <div className="mt-6 rounded-xl border border-amber-400/30 bg-amber-500/10 p-4">
-                  <h3 className="mb-3 font-semibold text-amber-200">Gallos sin pareja ({sobrantes.length})</h3>
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                    {sobrantes.map((gallo) => {
-                      const esIncompleteFrente = incompleteFrentes.some((g) => g.id === gallo.id);
-                      return (
-                        <div
-                          key={gallo.id}
-                          className={`rounded-lg border p-3 ${
-                            esIncompleteFrente
-                              ? "border-red-400/40 bg-red-500/5"
-                              : "border-amber-400/30 bg-slate-800/40"
-                          }`}
-                        >
-                          <div className="mb-2 flex items-start justify-between">
-                            <p className="text-sm font-semibold text-amber-300">{gallo.nombre_gallo}</p>
-                            {esIncompleteFrente && (
-                              <span className="rounded bg-red-600/40 px-2 py-1 text-xs font-semibold text-red-300">
-                                Frente incompleto
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-slate-400">Galpón: {gallo.galpon}</p>
-                          <p className="text-xs text-slate-400">Propietario: {gallo.propietario}</p>
-                          <p className="text-xs text-slate-400">Peso: {gallo.peso_libras.toFixed(2)} lb</p>
-                          <p className="text-xs text-slate-400">Color: {gallo.color_gallo} / Pata: {gallo.color_pata}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
               {incompleteFrentes.length > 0 && (
                 <div className="mt-6 rounded-xl border border-red-400/30 bg-red-500/10 p-4">
                   <h3 className="mb-3 font-semibold text-red-200">Frentes incompletos - Excluidos del sorteo ({incompleteFrentes.length})</h3>
@@ -1518,6 +1601,63 @@ export default function Home() {
                   </div>
                 </div>
               )}
+
+              <div className="mt-6 rounded-xl border border-sky-400/30 bg-sky-500/10 p-4">
+                <h3 className="mb-2 font-semibold text-sky-200">Emparejamiento manual post-sorteo</h3>
+                <p className="mb-4 text-xs text-sky-100/90">
+                  Usa esta sección para crear peleas adicionales con criterio del juez, respetando reglas: distinto galpón y distinto frente.
+                </p>
+
+                {manualCandidates.length < 2 ? (
+                  <p className="text-sm text-slate-300">No hay suficientes gallos sobrantes para crear una pelea manual.</p>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-slate-300">Gallo A (sobrante)</label>
+                      <select
+                        value={manualGalloAId}
+                        onChange={(e) => setManualGalloAId(e.target.value)}
+                        className="w-full rounded-md border border-slate-600 bg-slate-950/70 px-3 py-2 text-sm"
+                      >
+                        <option value="">Seleccione gallo A</option>
+                        {manualCandidatesA.map((rooster) => (
+                          <option key={`manual-a-${rooster.id}`} value={rooster.id}>
+                            #{rooster.id} | {rooster.nombre_gallo} | {rooster.galpon} | {rooster.color_gallo} | {rooster.peso_libras.toFixed(2)} lb
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-slate-300">Gallo B (sobrante)</label>
+                      <select
+                        value={manualGalloBId}
+                        onChange={(e) => setManualGalloBId(e.target.value)}
+                        disabled={!manualGalloAId}
+                        className="w-full rounded-md border border-slate-600 bg-slate-950/70 px-3 py-2 text-sm"
+                      >
+                        <option value="">{manualGalloAId ? "Seleccione gallo B" : "Primero seleccione gallo A"}</option>
+                        {manualCandidatesB.map((rooster) => (
+                          <option key={`manual-b-${rooster.id}`} value={rooster.id}>
+                            #{rooster.id} | {rooster.nombre_gallo} | {rooster.galpon} | {rooster.color_gallo} | {rooster.peso_libras.toFixed(2)} lb
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <button
+                        type="button"
+                        onClick={onCreateManualPair}
+                        disabled={loading || !manualGalloAId || !manualGalloBId}
+                        className="w-full rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {loading ? "Agregando pelea..." : "Agregar pelea manual"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </section>
         )}

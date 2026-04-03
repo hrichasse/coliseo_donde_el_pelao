@@ -3,10 +3,12 @@ type PrintablePair = {
   galloA: string;
   galponA: string;
   propietarioA: string;
+  colorA: string;
   pesoA: string;
   galloB: string;
   galponB: string;
   propietarioB: string;
+  colorB: string;
   pesoB: string;
   diferencia: string;
 };
@@ -42,10 +44,12 @@ export default async function PrintPage({
             <th className="border p-2">Frente A</th>
             <th className="border p-2">Galpón A</th>
             <th className="border p-2">Propietario A</th>
+            <th className="border p-2">Color A</th>
             <th className="border p-2">Peso A (lb)</th>
             <th className="border p-2">Frente B</th>
             <th className="border p-2">Galpón B</th>
             <th className="border p-2">Propietario B</th>
+            <th className="border p-2">Color B</th>
             <th className="border p-2">Peso B (lb)</th>
             <th className="border p-2">Dif (g)</th>
             <th className="border p-2">Tiempo (manual)</th>
@@ -59,10 +63,12 @@ export default async function PrintPage({
               <td className="border p-2">{pair.galloA}</td>
               <td className="border p-2">{pair.galponA}</td>
               <td className="border p-2">{pair.propietarioA}</td>
+              <td className="border p-2">{pair.colorA}</td>
               <td className="border p-2 text-right">{pair.pesoA}</td>
               <td className="border p-2">{pair.galloB}</td>
               <td className="border p-2">{pair.galponB}</td>
               <td className="border p-2">{pair.propietarioB}</td>
+              <td className="border p-2">{pair.colorB}</td>
               <td className="border p-2 text-right">{pair.pesoB}</td>
               <td className="border p-2 text-right">{pair.diferencia}</td>
               <td className="border p-2" style={{ minWidth: 140 }}>

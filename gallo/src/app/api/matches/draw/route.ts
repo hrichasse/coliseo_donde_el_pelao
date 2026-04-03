@@ -43,7 +43,7 @@ export async function POST() {
     .from("emparejamientos")
     .insert(insertPayload)
     .select(
-      "id, gallo_a_id, gallo_b_id, ganador_id, duracion_segundos, diferencia_gramos, created_at, gallo_a:gallo_a_id(id, nombre_gallo, galpon, propietario, peso_libras), gallo_b:gallo_b_id(id, nombre_gallo, galpon, propietario, peso_libras)",
+      "id, gallo_a_id, gallo_b_id, ganador_id, duracion_segundos, diferencia_gramos, created_at, gallo_a:gallo_a_id(id, nombre_gallo, galpon, propietario, color_gallo, peso_libras), gallo_b:gallo_b_id(id, nombre_gallo, galpon, propietario, color_gallo, peso_libras)",
     )
     .order("id", { ascending: true });
 
@@ -67,6 +67,8 @@ export async function POST() {
       galpon_b: galloB?.galpon ?? "",
       propietario_a: galloA?.propietario ?? "",
       propietario_b: galloB?.propietario ?? "",
+      color_a: galloA?.color_gallo ?? "",
+      color_b: galloB?.color_gallo ?? "",
       peso_a_libras: galloA?.peso_libras ?? 0,
       peso_b_libras: galloB?.peso_libras ?? 0,
       diferencia_gramos: row.diferencia_gramos,

@@ -2,8 +2,14 @@
 -- Diferencia máxima: 0.02 libras (9 gramos aproximadamente)
 
 ALTER TABLE public.emparejamientos
-ADD CONSTRAINT max_weight_diff_check 
-CHECK (diferencia_gramos <= 9);
+ADD COLUMN IF NOT EXISTS es_manual boolean NOT NULL DEFAULT false;
+
+ALTER TABLE public.emparejamientos
+DROP CONSTRAINT IF EXISTS max_weight_diff_check;
+
+ALTER TABLE public.emparejamientos
+ADD CONSTRAINT max_weight_diff_check
+CHECK (es_manual OR diferencia_gramos <= 9);
 
 -- Migration: Limitar a 2 gallos por frente POR GALPÓN
 create or replace function public.enforce_frente_max_dos()

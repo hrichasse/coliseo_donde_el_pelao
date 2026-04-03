@@ -61,6 +61,7 @@ create table public.emparejamientos (
   id bigint generated always as identity primary key,
   gallo_a_id bigint not null references public.gallos(id) on delete cascade,
   gallo_b_id bigint not null references public.gallos(id) on delete cascade,
+  es_manual boolean not null default false,
   ganador_id bigint null references public.gallos(id),
   duracion_segundos integer null check (duracion_segundos >= 0),
   diferencia_gramos integer not null,

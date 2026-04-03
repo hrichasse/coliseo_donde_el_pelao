@@ -108,7 +108,7 @@ export async function POST(request: Request) {
 
   const { data: inserted, error: insertError } = await supabase
     .from("emparejamientos")
-    .insert({ gallo_a_id: galloAId, gallo_b_id: galloBId, diferencia_gramos: diferenciaGramos })
+    .insert({ gallo_a_id: galloAId, gallo_b_id: galloBId, diferencia_gramos: diferenciaGramos, es_manual: true })
     .select(
       "id, gallo_a_id, gallo_b_id, ganador_id, duracion_segundos, diferencia_gramos, created_at, gallo_a:gallo_a_id(id, nombre_gallo, galpon, propietario, color_gallo, peso_libras), gallo_b:gallo_b_id(id, nombre_gallo, galpon, propietario, color_gallo, peso_libras)",
     )

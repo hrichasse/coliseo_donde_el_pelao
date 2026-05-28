@@ -1,8 +1,7 @@
 import type { Rooster } from "@/lib/types";
 
 const LIBRA_A_GRAMOS = 453.59237;
-const MAX_WEIGHT_DIFF_LIBRAS = 0.02;
-const WEIGHT_EPSILON = 1e-9;
+const MAX_WEIGHT_STEPS = 2;
 
 export const PESO_OPCIONES = [
   3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 3.1, 3.11, 3.12, 3.13, 3.14, 3.15,
@@ -59,12 +58,19 @@ function splitFrentes(roosters: Rooster[]) {
   return { completeFrentes, registrationIncomplete };
 }
 
+// Convierte un peso en notación libras.onzas (ej: 3.15 = 3 lbs 15/16) a pasos lineales.
+// Cada libra tiene 16 pasos (.00 a .15), por lo que 3.15 → 4.00 es solo 1 paso.
+function weightToSteps(peso: number): number {
+  const lbs = Math.floor(peso);
+  const oz = Math.round((peso - lbs) * 100);
+  return lbs * 16 + oz;
+}
+
 function canFight(a: Rooster, b: Rooster): boolean {
   if (a.galpon.trim().toLowerCase() === b.galpon.trim().toLowerCase()) {
     return false;
   }
-  const diffLibras = Math.abs(a.peso_libras - b.peso_libras);
-  return diffLibras - MAX_WEIGHT_DIFF_LIBRAS <= WEIGHT_EPSILON;
+  return Math.abs(weightToSteps(a.peso_libras) - weightToSteps(b.peso_libras)) <= MAX_WEIGHT_STEPS;
 }
 
 function greedyPair(roosters: Rooster[]) {
@@ -82,8 +88,8 @@ function greedyPair(roosters: Rooster[]) {
           continue;
         }
 
-        const diffLibras = Math.abs(available[i].peso_libras - available[j].peso_libras);
-        const diff = librasAGramos(diffLibras);
+        const stepDiff = Math.abs(weightToSteps(available[i].peso_libras) - weightToSteps(available[j].peso_libras));
+        const diff = stepDiff;
         if (diff < bestDiff) {
           bestDiff = diff;
           bestI = i;

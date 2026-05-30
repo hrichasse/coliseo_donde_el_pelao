@@ -917,9 +917,11 @@ export default function Home() {
   }
 
   function onDownloadPollon() {
-    const pollones = reportRows.filter(
-      (row) => row.mejor_tiempo_victoria_segundos != null && row.mejor_tiempo_victoria_segundos < 60,
-    );
+    const pollones = reportRows
+      .filter(
+        (row) => row.mejor_tiempo_victoria_segundos != null && row.mejor_tiempo_victoria_segundos < 60,
+      )
+      .sort((a, b) => (a.mejor_tiempo_victoria_segundos ?? 0) - (b.mejor_tiempo_victoria_segundos ?? 0));
     
     if (pollones.length === 0) {
       setError("No hay ningún Pollón (menos de 1 minuto)");
@@ -934,8 +936,8 @@ export default function Home() {
       startY: 20,
       rowPageBreak: "avoid",
       head: [["Pos.", "Galpón", "Plaqueo", "Frente", "Propietario", "Puntos", "Peleas", "Mejor Tiempo Pollón (MM:SS)"]],
-      body: pollones.map((row) => [
-        String(row.posicion),
+      body: pollones.map((row, index) => [
+        String(index + 1),
         row.galpon,
         row.plaqueo || "-",
         row.frente,

@@ -112,6 +112,11 @@ export default function Home() {
   const [nextPlaqueo, setNextPlaqueo] = useState<number>(1000);
   const [manualGalloAId, setManualGalloAId] = useState<string>("");
   const [manualGalloBId, setManualGalloBId] = useState<string>("");
+  const [colorGalloCustom, setColorGalloCustom] = useState(false);
+  const [colorPataCustom, setColorPataCustom] = useState(false);
+
+  const COLORES_GALLO = ["MORO", "AJISECO", "AJI CACHUFO", "AJI SECO CRESTON", "AJI PLUMON", "PINTO", "CENIZO", "CARMELO", "AMARILLO", "GALLINO TABACO", "GALLINO NEGRO", "JIRO", "BARROSO"];
+  const COLORES_PATA = ["AMARILLO", "BLANCA", "NEGRA", "VERDE", "JASPEADO"];
 
   const normalizeFrente = (value: string) => value.trim().replace(/\s+/g, " ").toUpperCase();
 
@@ -311,6 +316,8 @@ export default function Home() {
       }
 
       setForm(INITIAL_FORM);
+      setColorGalloCustom(false);
+      setColorPataCustom(false);
       setMessage("Frente registrado correctamente");
       setShowCreateGalpon(false);
       setNuevoGalponNombre("");
@@ -367,6 +374,45 @@ export default function Home() {
         );
       }
       setDbMatchesCount((payload.data ?? []).length);
+      await loadReport();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error inesperado");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onDrawIncremental() {
+    setError("");
+    setMessage("");
+    setLoading(true);
+    try {
+      const response = await fetch("/api/matches/draw/incremental", { method: "POST" });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error ?? "No se pudieron agregar los nuevos enfrentamientos");
+      }
+
+      // Agregar las nuevas peleas a las existentes (sin borrar)
+      setPairs((prev) => [...prev, ...(payload.data ?? [])]);
+      setSobrantes(payload.sobrantes ?? []);
+      setResultByMatch((prev) => ({
+        ...prev,
+        ...Object.fromEntries(
+          (payload.data ?? []).map((pair: DrawPair) => [
+            pair.id,
+            {
+              ganadorId: pair.ganador_id ? String(pair.ganador_id) : "",
+              segundos: pair.duracion_segundos != null ? String(pair.duracion_segundos) : "",
+            },
+          ]),
+        ),
+      }));
+      setDbMatchesCount((prev) => prev + (payload.data ?? []).length);
+      const r = payload.resumen;
+      setMessage(
+        `Se agregaron ${r?.total_nuevas_peleas ?? 0} peleas nuevas de ${r?.total_nuevos ?? 0} gallos. Sobrantes nuevos: ${r?.total_sobrantes_nuevos ?? 0}`,
+      );
       await loadReport();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado");
@@ -1183,20 +1229,76 @@ export default function Home() {
                   className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-slate-100 outline-none ring-cyan-400/50 placeholder:text-slate-500 focus:ring"
                   required
                 />
-                <input
-                  value={form.color_gallo}
-                  onChange={(e) => setForm((prev) => ({ ...prev, color_gallo: e.target.value }))}
-                  placeholder="Color de gallo"
-                  className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-slate-100 outline-none ring-cyan-400/50 placeholder:text-slate-500 focus:ring"
-                  required
-                />
-                <input
-                  value={form.color_pata}
-                  onChange={(e) => setForm((prev) => ({ ...prev, color_pata: e.target.value }))}
-                  placeholder="Color de pata"
-                  className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-slate-100 outline-none ring-cyan-400/50 placeholder:text-slate-500 focus:ring"
-                  required
-                />
+                {colorGalloCustom ? (
+                  <div className="flex gap-2">
+                    <input
+                      value={form.color_gallo}
+                      onChange={(e) => setForm((prev) => ({ ...prev, color_gallo: e.target.value }))}
+                      placeholder="Escribe el color del gallo"
+                      className="flex-1 rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-slate-100 outline-none ring-cyan-400/50 placeholder:text-slate-500 focus:ring"
+                      required
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => { setColorGalloCustom(false); setForm((prev) => ({ ...prev, color_gallo: "" })); }}
+                      className="px-3 py-2.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 hover:text-slate-100 hover:bg-slate-700 transition-colors"
+                    >✕</button>
+                  </div>
+                ) : (
+                  <select
+                    value={form.color_gallo}
+                    onChange={(e) => {
+                      if (e.target.value === "__custom__") {
+                        setColorGalloCustom(true);
+                        setForm((prev) => ({ ...prev, color_gallo: "" }));
+                      } else {
+                        setForm((prev) => ({ ...prev, color_gallo: e.target.value }));
+                      }
+                    }}
+                    className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-slate-100 outline-none ring-cyan-400/50 focus:ring"
+                    required
+                  >
+                    <option value="" disabled>Color de gallo</option>
+                    {COLORES_GALLO.map((c) => <option key={c} value={c}>{c}</option>)}
+                    <option value="__custom__">✏️ Agregar color...</option>
+                  </select>
+                )}
+                {colorPataCustom ? (
+                  <div className="flex gap-2">
+                    <input
+                      value={form.color_pata}
+                      onChange={(e) => setForm((prev) => ({ ...prev, color_pata: e.target.value }))}
+                      placeholder="Escribe el color de pata"
+                      className="flex-1 rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-slate-100 outline-none ring-cyan-400/50 placeholder:text-slate-500 focus:ring"
+                      required
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => { setColorPataCustom(false); setForm((prev) => ({ ...prev, color_pata: "" })); }}
+                      className="px-3 py-2.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 hover:text-slate-100 hover:bg-slate-700 transition-colors"
+                    >✕</button>
+                  </div>
+                ) : (
+                  <select
+                    value={form.color_pata}
+                    onChange={(e) => {
+                      if (e.target.value === "__custom__") {
+                        setColorPataCustom(true);
+                        setForm((prev) => ({ ...prev, color_pata: "" }));
+                      } else {
+                        setForm((prev) => ({ ...prev, color_pata: e.target.value }));
+                      }
+                    }}
+                    className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-slate-100 outline-none ring-cyan-400/50 focus:ring"
+                    required
+                  >
+                    <option value="" disabled>Color de pata</option>
+                    {COLORES_PATA.map((c) => <option key={c} value={c}>{c}</option>)}
+                    <option value="__custom__">✏️ Agregar color...</option>
+                  </select>
+                )}
                 <input
                   value={form.plaqueo}
                   readOnly
@@ -1443,6 +1545,17 @@ export default function Home() {
                 >
                   Generar enfretamientos
                 </button>
+                {(pairs.length > 0 || dbMatchesCount > 0) && (
+                  <button
+                    type="button"
+                    onClick={onDrawIncremental}
+                    disabled={loading}
+                    className="rounded-lg bg-amber-500 px-5 py-3 text-base font-semibold text-slate-950 transition hover:bg-amber-400 disabled:opacity-60"
+                    title="Agrega peleas para los gallos que llegaron después del sorteo inicial, sin borrar las existentes"
+                  >
+                    + Agregar nuevos al sorteo
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={onClearMatches}

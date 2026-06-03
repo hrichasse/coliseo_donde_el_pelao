@@ -73,7 +73,10 @@ export async function GET() {
       }
 
       frenteStats[keyA].puntos += puntosA;
-      if (row.ganador_id === galloA?.id) {
+      if (!row.ganador_id) {
+        // Empate: la pelea duró el tiempo completo (360s = 6:00)
+        frenteStats[keyA].tiempo_total += duracionSegundos || 360;
+      } else if (row.ganador_id === galloA?.id) {
         frenteStats[keyA].tiempo_total += duracionSegundos;
       }
       frenteStats[keyA].peleas += 1;
@@ -116,7 +119,10 @@ export async function GET() {
       }
 
       frenteStats[keyB].puntos += puntosB;
-      if (row.ganador_id === galloB?.id) {
+      if (!row.ganador_id) {
+        // Empate: la pelea duró el tiempo completo (360s = 6:00)
+        frenteStats[keyB].tiempo_total += duracionSegundos || 360;
+      } else if (row.ganador_id === galloB?.id) {
         frenteStats[keyB].tiempo_total += duracionSegundos;
       }
       frenteStats[keyB].peleas += 1;

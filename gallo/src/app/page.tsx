@@ -11,22 +11,20 @@ import { useAuth } from "@/hooks/useAuth";
 
 // Verificar autenticación en el cliente
 function useProtected() {
-  const router = useRouter();
-  const isClient = typeof window !== "undefined";
-  const hasToken = isClient ? Boolean(sessionStorage.getItem("auth_token")) : false;
+  const [authorized, setAuthorized] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!isClient) return;
-
+    const hasToken = Boolean(sessionStorage.getItem("auth_token"));
     if (!hasToken) {
-      router.replace("/login");
+      window.location.replace("/login");
+    } else {
+      setAuthorized(true);
+      setLoading(false);
     }
-  }, [hasToken, isClient, router]);
+  }, []);
 
-  return {
-    authorized: hasToken,
-    loading: !isClient,
-  };
+  return { authorized, loading };
 }
 
 type DrawPair = {
@@ -718,6 +716,17 @@ export default function Home() {
     return sobrantes.slice().sort((a, b) => a.id - b.id);
   }, [sobrantes]);
 
+  // Set de IDs de gallos sin pareja (sobrantes), para badge en tarjetas de pelea
+  const sobrantesIds = useMemo(() => new Set(sobrantes.map((g) => g.id)), [sobrantes]);
+
+  // Para cada gallo en un par, si su compañero de frente está en sobrantes → badge
+  function frenteCompanionSinPareja(galloId: number, nombreGallo: string, galpon: string): boolean {
+    const companion = roosters.find(
+      (r) => r.id !== galloId && r.nombre_gallo === nombreGallo && r.galpon === galpon,
+    );
+    return companion != null && sobrantesIds.has(companion.id);
+  }
+
   const manualSelectedA = useMemo(() => {
     const selectedId = Number(manualGalloAId);
     if (!selectedId) return null;
@@ -1084,7 +1093,7 @@ export default function Home() {
             <img 
               src="/images/logopng.png" 
               alt="Coliseo donde el Pelao" 
-              style={{width: '500px', height: '120px', borderRadius: '0.5rem'}}
+              style={{width: '700px', height: '170px', borderRadius: '0.5rem'}}
               className="shadow-2xl shadow-black/40 object-contain shrink-0"
             />
             <button
@@ -1482,7 +1491,12 @@ export default function Home() {
 
                       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                         <div className="rounded-lg border border-cyan-400/30 bg-cyan-500/10 p-3">
-                          <p className="mb-1 text-xs font-semibold text-cyan-300">FRENTE A</p>
+                          <div className="mb-1 flex items-center gap-2">
+                            <p className="text-xs font-semibold text-cyan-300">FRENTE A</p>
+                            {frenteCompanionSinPareja(pair.gallo_a_id, pair.gallo_a_nombre, pair.galpon_a) && (
+                              <span className="rounded-full bg-orange-500/20 border border-orange-400/50 px-2 py-0.5 text-xs font-semibold text-orange-300">SIN PAREJA</span>
+                            )}
+                          </div>
                           <p className="text-base font-semibold">{pair.gallo_a_nombre}</p>
                           <p className="text-sm text-slate-300">Galpón: {pair.galpon_a}</p>
                           <p className="text-sm text-slate-300">Propietario: {pair.propietario_a}</p>
@@ -1491,7 +1505,12 @@ export default function Home() {
                         </div>
 
                         <div className="rounded-lg border border-fuchsia-400/30 bg-fuchsia-500/10 p-3">
-                          <p className="mb-1 text-xs font-semibold text-fuchsia-300">FRENTE B</p>
+                          <div className="mb-1 flex items-center gap-2">
+                            <p className="text-xs font-semibold text-fuchsia-300">FRENTE B</p>
+                            {frenteCompanionSinPareja(pair.gallo_b_id, pair.gallo_b_nombre, pair.galpon_b) && (
+                              <span className="rounded-full bg-orange-500/20 border border-orange-400/50 px-2 py-0.5 text-xs font-semibold text-orange-300">SIN PAREJA</span>
+                            )}
+                          </div>
                           <p className="text-base font-semibold">{pair.gallo_b_nombre}</p>
                           <p className="text-sm text-slate-300">Galpón: {pair.galpon_b}</p>
                           <p className="text-sm text-slate-300">Propietario: {pair.propietario_b}</p>
@@ -1598,6 +1617,24 @@ export default function Home() {
                         <p className="text-xs text-slate-400">Propietario: {gallo.propietario}</p>
                         <p className="text-xs text-slate-400">Peso: {gallo.peso_libras.toFixed(2)} lb</p>
                         <p className="text-xs text-slate-400">Color: {gallo.color_gallo} / Pata: {gallo.color_pata}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {sobrantes.length > 0 && pairs.length > 0 && (
+                <div className="mt-4">
+                  <h3 className="mb-3 font-semibold text-orange-300">Sin pareja ({sobrantes.length})</h3>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+                    {sobrantes.map((gallo) => (
+                      <div key={gallo.id} className="rounded-lg border border-orange-400/40 bg-orange-500/10 p-3">
+                        <p className="mb-1 text-xs font-semibold text-orange-300">SIN PAREJA</p>
+                        <p className="text-sm font-semibold text-slate-100">{gallo.nombre_gallo}</p>
+                        <p className="text-xs text-slate-300">Galpón: {gallo.galpon}</p>
+                        <p className="text-xs text-slate-300">Propietario: {gallo.propietario || "-"}</p>
+                        <p className="text-xs text-slate-300">Peso: {Number(gallo.peso_libras).toFixed(2)} lb</p>
+                        <p className="text-xs text-slate-300">Color: {gallo.color_gallo} / Pata: {gallo.color_pata || "-"}</p>
                       </div>
                     ))}
                   </div>

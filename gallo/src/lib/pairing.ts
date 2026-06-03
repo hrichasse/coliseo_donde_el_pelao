@@ -136,84 +136,12 @@ function uniqueRoostersById(roosters: Rooster[]): Rooster[] {
 }
 
 export function buildPairsByWeight(roosters: Rooster[]) {
-  const { completeFrentes, registrationIncomplete } = splitFrentes(roosters);
-
-  const roosterToFrenteKey = new Map<number, string>();
-  for (const [key, members] of completeFrentes) {
-    roosterToFrenteKey.set(members[0].id, key);
-    roosterToFrenteKey.set(members[1].id, key);
-  }
-
-  const excludedFrentes = new Set<string>();
-  let finalPairs: PairCandidate[] = [];
-
-  while (true) {
-    const activeRoosters = Array.from(completeFrentes.entries())
-      .filter(([key]) => !excludedFrentes.has(key))
-      .flatMap(([, members]) => members);
-
-    const { pairs } = greedyPair(activeRoosters);
-
-    const matchedByFrente = new Map<string, number>();
-    for (const key of completeFrentes.keys()) {
-      if (!excludedFrentes.has(key)) {
-        matchedByFrente.set(key, 0);
-      }
-    }
-
-    for (const pair of pairs) {
-      const frenteA = roosterToFrenteKey.get(pair.galloA.id);
-      const frenteB = roosterToFrenteKey.get(pair.galloB.id);
-
-      if (frenteA && matchedByFrente.has(frenteA)) {
-        matchedByFrente.set(frenteA, (matchedByFrente.get(frenteA) ?? 0) + 1);
-      }
-      if (frenteB && matchedByFrente.has(frenteB)) {
-        matchedByFrente.set(frenteB, (matchedByFrente.get(frenteB) ?? 0) + 1);
-      }
-    }
-
-    const newlyIncomplete: string[] = [];
-    for (const [frenteKey, matchedCount] of matchedByFrente) {
-      if (matchedCount === 1) {
-        newlyIncomplete.push(frenteKey);
-      }
-    }
-
-    if (newlyIncomplete.length === 0) {
-      finalPairs = pairs;
-      break;
-    }
-
-    for (const key of newlyIncomplete) {
-      excludedFrentes.add(key);
-    }
-
-    if (excludedFrentes.size === completeFrentes.size) {
-      finalPairs = [];
-      break;
-    }
-  }
-
-  const incompleteFromMatching = Array.from(excludedFrentes)
-    .flatMap((key) => completeFrentes.get(key) ?? []);
-
-  const incompleteFrentes = uniqueRoostersById([
-    ...registrationIncomplete,
-    ...incompleteFromMatching,
-  ]);
-
-  const pairedIds = new Set<number>();
-  for (const pair of finalPairs) {
-    pairedIds.add(pair.galloA.id);
-    pairedIds.add(pair.galloB.id);
-  }
-
-  const sobrantes = roosters.filter((rooster) => !pairedIds.has(rooster.id));
+  const unique = uniqueRoostersById(roosters);
+  const { pairs, sobrantes } = greedyPair(unique);
 
   return {
-    pairs: finalPairs,
+    pairs,
     sobrantes,
-    incompleteFrentes,
+    incompleteFrentes: [] as Rooster[],
   };
 }

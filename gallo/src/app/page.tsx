@@ -1500,29 +1500,59 @@ export default function Home() {
             </div>
 
             <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-2xl shadow-black/20">
-              <h2 className="mb-4 text-xl font-semibold text-fuchsia-200">Galpones y gallos pertenecientes</h2>
+              <div className="mb-5 flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-fuchsia-200">Galpones registrados</h2>
+                <span className="rounded-full bg-fuchsia-500/15 px-3 py-1 text-sm font-medium text-fuchsia-300">
+                  {galponesConGallos.length} galpones · {roosters.length} gallos
+                </span>
+              </div>
               {galponesConGallos.length === 0 ? (
                 <p className="text-sm text-slate-400">Aún no hay galpones con gallos.</p>
               ) : (
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {galponesConGallos.map((item) => (
-                    <div key={item.galpon} className="rounded-xl border border-slate-700 bg-slate-800/50 p-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1">
-                          <p className="font-medium text-fuchsia-100">
-                            {item.galpon} ({item.cantidad} gallos)
+                    <div
+                      key={item.galpon}
+                      className="group relative flex flex-col rounded-2xl border border-fuchsia-900/40 bg-gradient-to-b from-slate-800/80 to-slate-900/80 p-4 shadow-lg transition hover:border-fuchsia-500/50 hover:shadow-fuchsia-900/20"
+                    >
+                      {/* Header */}
+                      <div className="mb-3 flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="truncate text-base font-bold text-fuchsia-100 leading-tight" title={item.galpon}>
+                            {item.galpon}
                           </p>
-                          <p className="text-sm text-slate-300">{item.nombres.join(", ")}</p>
                         </div>
                         <button
                           type="button"
                           onClick={() => onDeleteGalpon(item.galpon)}
                           disabled={loading}
-                          className="shrink-0 rounded-lg bg-red-500/10 px-3 py-1.5 text-sm font-medium text-red-400 transition hover:bg-red-500/20 disabled:opacity-50"
+                          className="shrink-0 rounded-lg p-1.5 text-slate-500 opacity-0 transition group-hover:opacity-100 hover:bg-red-500/20 hover:text-red-400 disabled:opacity-30"
                           title="Eliminar galpón"
                         >
-                          Eliminar
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
                         </button>
+                      </div>
+                      {/* Contador */}
+                      <div className="mb-3">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-fuchsia-500/15 px-2.5 py-1 text-xs font-semibold text-fuchsia-300">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                          </svg>
+                          {item.cantidad} {item.cantidad === 1 ? "gallo" : "gallos"}
+                        </span>
+                      </div>
+                      {/* Lista de frentes */}
+                      <div className="flex flex-wrap gap-1.5 mt-auto">
+                        {Array.from(new Set(item.nombres)).sort().map((nombre) => (
+                          <span
+                            key={nombre}
+                            className="rounded-md bg-slate-700/70 px-2 py-0.5 text-xs text-slate-300"
+                          >
+                            {nombre}
+                          </span>
+                        ))}
                       </div>
                     </div>
                   ))}

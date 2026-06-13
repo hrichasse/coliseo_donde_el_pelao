@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export interface AuthUser {
@@ -10,7 +9,6 @@ export interface AuthUser {
 
 export function useAuth() {
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
   async function logout() {
     setLoading(true);

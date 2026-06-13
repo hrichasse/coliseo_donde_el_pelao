@@ -1,6 +1,5 @@
 import type { Rooster } from "@/lib/types";
 
-const LIBRA_A_GRAMOS = 453.59237;
 const MAX_WEIGHT_STEPS = 2;
 
 export const PESO_OPCIONES = [
@@ -9,54 +8,11 @@ export const PESO_OPCIONES = [
   5.0, 5.1, 5.2, 5.3, 5.4, 5.5,
 ];
 
-function librasAGramos(libras: number): number {
-  return libras * LIBRA_A_GRAMOS;
-}
-
 type PairCandidate = {
   galloA: Rooster;
   galloB: Rooster;
   diferenciaGramos: number;
 };
-
-function normalizeText(value: string): string {
-  return value.trim().toLowerCase().replace(/\s+/g, " ");
-}
-
-function getFrenteKey(rooster: Rooster): string {
-  return `${normalizeText(rooster.galpon)}|||${normalizeText(rooster.nombre_gallo)}`;
-}
-
-function buildFrenteGroups(roosters: Rooster[]) {
-  const groups = new Map<string, Rooster[]>();
-
-  for (const rooster of roosters) {
-    const key = getFrenteKey(rooster);
-    if (!groups.has(key)) {
-      groups.set(key, []);
-    }
-    groups.get(key)!.push(rooster);
-  }
-
-  return groups;
-}
-
-function splitFrentes(roosters: Rooster[]) {
-  const groups = buildFrenteGroups(roosters);
-
-  const completeFrentes = new Map<string, [Rooster, Rooster]>();
-  const registrationIncomplete: Rooster[] = [];
-
-  for (const [key, items] of groups) {
-    if (items.length === 2) {
-      completeFrentes.set(key, [items[0], items[1]]);
-    } else {
-      registrationIncomplete.push(...items);
-    }
-  }
-
-  return { completeFrentes, registrationIncomplete };
-}
 
 // Convierte un peso en notación libras.onzas (ej: 3.15 = 3 lbs 15/16) a pasos lineales.
 // Cada libra tiene 16 pasos (.00 a .15), por lo que 3.15 → 4.00 es solo 1 paso.

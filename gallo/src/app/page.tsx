@@ -3,7 +3,6 @@
 export const dynamic = "force-dynamic";
 
 import { FormEvent, KeyboardEvent, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { Rooster, Galpon } from "@/lib/types";
@@ -11,20 +10,21 @@ import { useAuth } from "@/hooks/useAuth";
 
 // Verificar autenticación en el cliente
 function useProtected() {
-  const [authorized, setAuthorized] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [authorized] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    return Boolean(sessionStorage.getItem("auth_token"));
+  });
 
   useEffect(() => {
-    const hasToken = Boolean(sessionStorage.getItem("auth_token"));
-    if (!hasToken) {
+    if (!authorized) {
       window.location.replace("/login");
-    } else {
-      setAuthorized(true);
-      setLoading(false);
     }
-  }, []);
+  }, [authorized]);
 
-  return { authorized, loading };
+  return { authorized, loading: false };
 }
 
 type DrawPair = {
@@ -109,7 +109,6 @@ export default function Home() {
   const [error, setError] = useState<string>("");
   const [reportRows, setReportRows] = useState<ReportRow[]>([]);
   const [resultByMatch, setResultByMatch] = useState<Record<number, { ganadorId: string; segundos: string }>>({});
-  const [nextPlaqueo, setNextPlaqueo] = useState<number>(1000);
   const [manualGalloAId, setManualGalloAId] = useState<string>("");
   const [manualGalloBId, setManualGalloBId] = useState<string>("");
   const [colorGalloCustom, setColorGalloCustom] = useState(false);
@@ -142,6 +141,7 @@ export default function Home() {
     loadGalpones();
     loadMatchesCount();
     loadReport();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -171,12 +171,10 @@ export default function Home() {
   // Calcular el siguiente plaqueo disponible cuando cambien los roosters
   useEffect(() => {
     if (roosters.length === 0) {
-      setNextPlaqueo(1000);
       setForm((prev) => ({ ...prev, plaqueo: "1000" }));
     } else {
       const maxPlaqueo = Math.max(...roosters.map((r) => (r.plaqueo ?? 999)));
       const nextNum = Math.max(maxPlaqueo + 1, 1000);
-      setNextPlaqueo(nextNum);
       setForm((prev) => ({ ...prev, plaqueo: String(nextNum) }));
     }
   }, [roosters]);
@@ -875,22 +873,6 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }
-
-  function formatTiempoAutomatico(soloNumeros: string): string {
-    if (!soloNumeros) return "";
-    
-    // Remover caracteres no numéricos
-    const numeros = soloNumeros.replace(/\D/g, "");
-    
-    if (numeros.length === 0) return "";
-    
-    // Convertir a número para eliminar ceros al inicio
-    const totalSegundos = Number(numeros);
-    const minutos = Math.floor(totalSegundos / 60);
-    const segundos = totalSegundos % 60;
-    
-    return `${minutos}:${segundos.toString().padStart(2, "0")}`;
   }
 
   function convertirMMSSASegundos(mmss: string): number {

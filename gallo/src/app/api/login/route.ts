@@ -1,9 +1,7 @@
+import { signAuthToken } from "@/lib/auth";
 import { createServiceRoleClient } from "@/lib/supabase";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import { NextRequest, NextResponse } from "next/server";
-
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
 
 export async function POST(req: NextRequest) {
   try {
@@ -45,11 +43,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Crear JWT token
-    const token = jwt.sign(
-      { id: usuario.id, email: usuario.email },
-      JWT_SECRET,
-      { expiresIn: "24h" }
-    );
+    const token = signAuthToken({ id: usuario.id, email: usuario.email });
 
     // Crear respuesta y agregar cookie
     const response = NextResponse.json({

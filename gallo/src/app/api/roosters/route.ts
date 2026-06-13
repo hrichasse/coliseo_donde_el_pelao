@@ -1,3 +1,4 @@
+import { requireAuth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 
@@ -5,7 +6,10 @@ function normalizeFrente(value: string): string {
   return String(value).trim().replace(/\s+/g, " ").toUpperCase();
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const auth = requireAuth(request);
+  if (auth.response) return auth.response;
+
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from("gallos")
@@ -20,6 +24,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const auth = requireAuth(request);
+  if (auth.response) return auth.response;
+
   const supabase = getSupabase();
   const body = await request.json();
 
@@ -105,6 +112,9 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const auth = requireAuth(request);
+  if (auth.response) return auth.response;
+
   const supabase = getSupabase();
   const { searchParams } = new URL(request.url);
   const id = Number(searchParams.get("id"));
@@ -140,6 +150,9 @@ export async function DELETE(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const auth = requireAuth(request);
+  if (auth.response) return auth.response;
+
   const supabase = getSupabase();
   const body = await request.json();
 

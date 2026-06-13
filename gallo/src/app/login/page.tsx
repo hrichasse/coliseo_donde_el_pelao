@@ -29,12 +29,6 @@ export default function LoginPage() {
         return;
       }
 
-      const data = await res.json();
-      console.log("Login exitoso:", data);
-
-      // Guardar en sessionStorage para evitar problemas con cookies
-      sessionStorage.setItem("auth_token", data.token);
-      
       // Redirigir a la página principal
       setTimeout(() => {
         window.location.href = "/";

@@ -1,7 +1,11 @@
+import { requireAuth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const auth = requireAuth(request);
+  if (auth.response) return auth.response;
+
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from("emparejamientos")
@@ -43,6 +47,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const auth = requireAuth(request);
+  if (auth.response) return auth.response;
+
   const supabase = getSupabase();
   const body = await request.json();
 
@@ -144,7 +151,10 @@ export async function POST(request: Request) {
   });
 }
 
-export async function DELETE() {
+export async function DELETE(request: Request) {
+  const auth = requireAuth(request);
+  if (auth.response) return auth.response;
+
   const supabase = getSupabase();
   const { error } = await supabase.from("emparejamientos").delete().neq("id", 0);
 
@@ -156,6 +166,9 @@ export async function DELETE() {
 }
 
 export async function PATCH(request: Request) {
+  const auth = requireAuth(request);
+  if (auth.response) return auth.response;
+
   const supabase = getSupabase();
   const body = await request.json();
 

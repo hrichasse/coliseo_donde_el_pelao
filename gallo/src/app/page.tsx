@@ -10,21 +10,41 @@ import { useAuth } from "@/hooks/useAuth";
 
 // Verificar autenticación en el cliente
 function useProtected() {
-  const [authorized] = useState(() => {
-    if (typeof window === "undefined") {
-      return false;
-    }
-
-    return Boolean(sessionStorage.getItem("auth_token"));
-  });
+  const [status, setStatus] = useState<"checking" | "authorized" | "unauthorized">("checking");
 
   useEffect(() => {
-    if (!authorized) {
-      window.location.replace("/login");
-    }
-  }, [authorized]);
+    let cancelled = false;
 
-  return { authorized, loading: false };
+    async function verifySession() {
+      try {
+        const response = await fetch("/api/verify", { cache: "no-store" });
+
+        if (cancelled) {
+          return;
+        }
+
+        if (response.ok) {
+          setStatus("authorized");
+          return;
+        }
+      } catch {
+        // Treat network or server failures as an unauthenticated session.
+      }
+
+      if (!cancelled) {
+        setStatus("unauthorized");
+        window.location.replace("/login");
+      }
+    }
+
+    void verifySession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return { authorized: status === "authorized", loading: status === "checking" };
 }
 
 type DrawPair = {

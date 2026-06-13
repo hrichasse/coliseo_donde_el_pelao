@@ -1,9 +1,13 @@
+import { requireAuth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { buildPairsByWeight } from "@/lib/pairing";
 import type { Rooster } from "@/lib/types";
 
-export async function POST() {
+export async function POST(request: Request) {
+  const auth = requireAuth(request);
+  if (auth.response) return auth.response;
+
   const supabase = getSupabase();
 
   // Obtener IDs de gallos que ya están en algún emparejamiento
